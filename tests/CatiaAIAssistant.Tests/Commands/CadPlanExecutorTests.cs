@@ -144,6 +144,48 @@ namespace CatiaAIAssistant.Tests.Commands
             Assert.Contains("COM died", report.LastResult!.ErrorDetails);
         }
 
+        [Fact]
+        public void Cancellation_StopsBetweenSteps_AndKeepsCompletedOutputs()
+        {
+            using var cts = new CancellationTokenSource();
+            var reg = new CadOperationRegistry()
+                .Register(new DelegateCadOperationHandler(new CadOperationDescriptor { OperationType = "A" }, c =>
+                {
+                    _calls.Add(c.Step.StepId);
+                    cts.Cancel(); // user presses Cancel while step 1 runs
+                    return new CadOperationResult { OperationName = "A", FinalState = OperationState.Succeeded, OutputFilePath = c.TargetPath };
+                }));
+            var spec = Plan(Step("S1", "A"), Step("S2", "A"), Step("S3", "A"));
+            var report = new CadPlanExecutor(reg, new OperationLogger(_root)).Execute(spec, _root, cts.Token);
+
+            Assert.True(report.Cancelled);
+            Assert.False(report.Succeeded);
+            Assert.Equal(new[] { "S1" }, _calls);
+            Assert.True(report.OutputFiles.ContainsKey("S1"));
+            Assert.Equal(OperationState.Succeeded, spec.ExecutionPlan[0].State);
+            Assert.Equal(OperationState.Skipped, spec.ExecutionPlan[1].State);
+            Assert.Equal(OperationState.Skipped, spec.ExecutionPlan[2].State);
+        }
+
+        [Fact]
+        public void AlreadyCancelled_ExecutesNothing()
+        {
+            var spec = Plan(Step("S1", "A"));
+            var report = Executor(Fake("A")).Execute(spec, _root, new CancellationToken(true));
+            Assert.True(report.Cancelled);
+            Assert.Empty(_calls);
+            Assert.Equal(OperationState.Skipped, spec.ExecutionPlan[0].State);
+        }
+
+        [Fact]
+        public void ComDisconnectInHandler_IsReportedAsCadDisconnected()
+        {
+            var reg = new CadOperationRegistry().Register(new DelegateCadOperationHandler(
+                new CadOperationDescriptor { OperationType = "A" }, _ => throw new System.Runtime.InteropServices.COMException("x", unchecked((int)0x80010108))));
+            var report = new CadPlanExecutor(reg, new OperationLogger(_root)).Execute(Plan(Step("S1", "A")), _root);
+            Assert.Equal(CatiaAIAssistant.Core.Errors.ErrorKind.CadDisconnected, report.ErrorKind);
+        }
+
         /// <summary>Every operation the engineering layer can plan must exist in the CATIA allowlist (source-level check; CATIA project is Windows-only).</summary>
         [Fact]
         public void EveryPlannedOperation_IsRegisteredInCatiaCatalog()
