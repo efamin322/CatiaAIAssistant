@@ -22,57 +22,17 @@ namespace CatiaAIAssistant.Infrastructure.Catia
             _logger = logger;
         }
 
-        public static string NormalizeDigits(string value)
-        {
-            if (string.IsNullOrEmpty(value)) return string.Empty;
+        /// <summary>Kept for backward compatibility; delegates to <see cref="TextNormalizer.NormalizeDigits"/>.</summary>
+        public static string NormalizeDigits(string value) => TextNormalizer.NormalizeDigits(value);
 
-            const string persianDigits = "۰۱۲۳۴۵۶۷۸۹";
-            const string arabicDigits = "٠١٢٣٤٥٦٧٨٩";
-            for (int i = 0; i < 10; i++)
-            {
-                value = value.Replace(persianDigits[i], (char)('0' + i));
-                value = value.Replace(arabicDigits[i], (char)('0' + i));
-            }
-            return value;
-        }
-
+        /// <summary>Kept for backward compatibility; delegates to <see cref="TextNormalizer.TryParseBlockDimensions"/>.</summary>
         public static bool TryParseBlockDimensionsFromText(
             string promptText,
             out double lengthX,
             out double widthY,
             out double heightZ,
             out string validationError)
-        {
-            lengthX = 0; widthY = 0; heightZ = 0; validationError = string.Empty;
-
-            string normalized = NormalizeDigits(promptText.Trim());
-            MatchCollection matches = Regex.Matches(normalized, @"\d+(?:[.,]\d+)?");
-
-            if (matches.Count != 3)
-            {
-                validationError = "دقیقاً سه اندازه (طول، عرض، ارتفاع) وارد کنید.";
-                return false;
-            }
-
-            double[] dims = new double[3];
-            for (int i = 0; i < 3; i++)
-            {
-                if (!double.TryParse(matches[i].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out dims[i]))
-                {
-                    validationError = $"مقدار «{matches[i].Value}» قابل خواندن نیست.";
-                    return false;
-                }
-
-                if (dims[i] <= 0 || dims[i] > 10000)
-                {
-                    validationError = $"ابعاد باید بین ۰ تا ۱۰,۰۰۰ میلی‌متر باشند.";
-                    return false;
-                }
-            }
-
-            lengthX = dims[0]; widthY = dims[1]; heightZ = dims[2];
-            return true;
-        }
+            => TextNormalizer.TryParseBlockDimensions(promptText, out lengthX, out widthY, out heightZ, out validationError);
 
         public CadOperationResult CreateBlockPart(double x, double y, double z, string outputPath, bool verifyReopen = false)
         {
