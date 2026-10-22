@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace CatiaAIAssistant.Core.Units
 {
     /// <summary>
@@ -57,7 +55,8 @@ namespace CatiaAIAssistant.Core.Units
         {
             string key = Normalize(text);
             if (_byAlias.TryGetValue(key, out unit!)) return true;
-            return _byAliasIgnoreCase.TryGetValue(key, out unit!);
+            // Case-insensitive fallback only for words (≥4 chars): short symbols are case-significant (mPa ≠ MPa, mm ≠ Mm).
+            return key.Length >= 4 && _byAliasIgnoreCase.TryGetValue(key, out unit!);
         }
 
         public Unit Resolve(string text) =>
