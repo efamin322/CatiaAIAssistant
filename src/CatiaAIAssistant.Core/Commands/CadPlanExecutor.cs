@@ -35,6 +35,8 @@ namespace CatiaAIAssistant.Core.Commands
     public sealed class CadPlanExecutor
     {
         private readonly CadOperationRegistry _registry;
+
+        public CadOperationRegistry Registry => _registry;
         private readonly IOperationLogger _logger;
         private readonly Func<DateTime> _clock;
 
