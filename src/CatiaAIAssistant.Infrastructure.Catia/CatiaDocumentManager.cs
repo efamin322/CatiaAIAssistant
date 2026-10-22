@@ -127,8 +127,8 @@ namespace CatiaAIAssistant.Infrastructure.Catia
 
         public void CloseIfOpenWithSameTarget(dynamic catia, string targetFilePath, dynamic currentWorkingDocument)
         {
-            object? conflict = FindOpenDocumentByPathOrName(catia, targetFilePath);
-            if (conflict is null || ReferenceEquals(conflict, currentWorkingDocument)) return;
+            object? conflict = (object?)FindOpenDocumentByPathOrName(catia, targetFilePath);
+            if (conflict is null || ReferenceEquals(conflict, (object?)currentWorkingDocument)) return;
 
             dynamic conflictDoc = conflict;
             try
