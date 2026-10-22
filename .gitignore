@@ -1,0 +1,25 @@
+# Build outputs
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+publish/
+TestResults/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userprefs
+UpgradeLog*.htm
+Backup*/
+
+# Secrets / local config
+*.secrets.json
+appsettings.Local.json
+.env
+
+# Misc
+*.log
+*.zip
