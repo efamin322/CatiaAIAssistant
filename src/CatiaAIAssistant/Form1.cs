@@ -5,10 +5,11 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using CatiaAIAssistant.Core.Abstractions;
 using CatiaAIAssistant.Core.Logging;
+using CatiaAIAssistant.Core.Text;
 using CatiaAIAssistant.Diagnostics;
 using CatiaAIAssistant.Engineering;
-using CatiaAIAssistant.Infrastructure.Catia;
 using CatiaAIAssistant.UI.Dialogs;
 
 namespace CatiaAIAssistant
@@ -21,12 +22,12 @@ namespace CatiaAIAssistant
         private readonly Color _backgroundColor = Color.FromArgb(242, 245, 249);
         private readonly Color _textColor = Color.FromArgb(35, 48, 66);
 
-        private readonly OperationLogger _logger;
-        private readonly CatiaConnectionService _connectionService;
-        private readonly CatiaDocumentManager _documentManager;
-        private readonly CatiaBasicPartService _partService;
-        private readonly EngineeringIntentAndCalculationEngine _intentEngine;
-        private readonly CatiaMechanicalEngine _mechanicalEngine;
+        private readonly IOperationLogger _logger;
+        private readonly ICadConnectionService _connectionService;
+        private readonly ICadDocumentService _documentManager;
+        private readonly IBasicPartService _partService;
+        private readonly IEngineeringIntentAnalyzer _intentEngine;
+        private readonly IDesignExecutionEngine _mechanicalEngine;
         private readonly Phase1SelfTestRunner _selfTestRunner;
 
         private FlowLayoutPanel _workspace = null!;
@@ -43,15 +44,17 @@ namespace CatiaAIAssistant
         private readonly List<Panel> _pageCards = new();
         private string _currentPage = "home";
 
-        public Form1()
+        /// <summary>All dependencies are injected by the Composition Root (<see cref="AppComposition"/>); the form never creates services.</summary>
+        public Form1(AppServices services)
         {
-            _logger = new OperationLogger();
-            _connectionService = new CatiaConnectionService(_logger);
-            _documentManager = new CatiaDocumentManager(_connectionService, _logger);
-            _partService = new CatiaBasicPartService(_connectionService, _documentManager, _logger);
-            _intentEngine = new EngineeringIntentAndCalculationEngine();
-            _mechanicalEngine = new CatiaMechanicalEngine(_connectionService, _documentManager, _partService, _logger);
-            _selfTestRunner = new Phase1SelfTestRunner(_logger, _connectionService, _documentManager, _partService);
+            ArgumentNullException.ThrowIfNull(services);
+            _logger = services.Logger;
+            _connectionService = services.Connection;
+            _documentManager = services.Documents;
+            _partService = services.Parts;
+            _intentEngine = services.IntentAnalyzer;
+            _mechanicalEngine = services.DesignEngine;
+            _selfTestRunner = services.SelfTests;
 
             _lastSaveDirectory = _logger.PartsOutputDirectory;
             _logger.EntryAdded += OnLoggerEntryAdded;
@@ -683,8 +686,7 @@ namespace CatiaAIAssistant
         {
             try
             {
-                dynamic catia = _connectionService.AcquireCatiaSession();
-                int count = Convert.ToInt32(catia.Documents.Count);
+                int count = _documentManager.GetOpenDocumentCount();
                 if (count == 0)
                 {
                     MessageBox.Show(this, "هیچ سندی در CATIA باز نیست.", "مدیریت اسناد", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -696,17 +698,7 @@ namespace CatiaAIAssistant
                     "تأیید بستن همهٔ اسناد", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
                 if (answer != DialogResult.Yes) return;
 
-                var failures = new List<string>();
-                for (int i = count; i >= 1; i--)
-                {
-                    try { catia.Documents.Item(i).Close(); }
-                    catch (Exception closeEx) { failures.Add($"سند شماره {i}: {closeEx.Message}"); }
-                }
-
-                if (failures.Count == 0)
-                    _logger.Succeeded("CloseAllDocuments", $"درخواست بستن {count} سند اجرا شد.");
-                else
-                    _logger.Log("CATIA", "CloseAllDocuments", OperationState.Failed, $"بعضی اسناد بسته نشدند: {string.Join(" | ", failures)}", LogSeverity.Warning);
+                var failures = _documentManager.CloseAllDocuments().Failures;
 
                 if (failures.Count > 0)
                     MessageBox.Show(this, string.Join(Environment.NewLine, failures), "اسناد بسته‌نشده", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -817,13 +809,13 @@ namespace CatiaAIAssistant
             if (parameters.ShowDialog(this) != DialogResult.OK) return;
 
             _logger.EnsureWorkspaceDirectories();
-            string cleanType = CatiaDocumentManager.SanitizeIdentifier(shapeType, "Shape");
+            string cleanType = TextNormalizer.SanitizeIdentifier(shapeType, "Shape");
 
             using var saveDialog = new SaveFileDialog { Title = "انتخاب نام و محل ذخیره CATPart", InitialDirectory = Directory.Exists(_lastSaveDirectory) ? _lastSaveDirectory : _logger.PartsOutputDirectory, FileName = $"CATIA_{cleanType}_{DateTime.Now:yyyyMMdd_HHmmss}.CATPart", Filter = "CATIA Part (*.CATPart)|*.CATPart", DefaultExt = "CATPart" };
             if (saveDialog.ShowDialog(this) != DialogResult.OK) return;
 
             string dir = Path.GetDirectoryName(saveDialog.FileName) ?? _logger.PartsOutputDirectory;
-            string safeFile = CatiaDocumentManager.SanitizeIdentifier(Path.GetFileNameWithoutExtension(saveDialog.FileName), cleanType) + ".CATPart";
+            string safeFile = TextNormalizer.SanitizeIdentifier(Path.GetFileNameWithoutExtension(saveDialog.FileName), cleanType) + ".CATPart";
             string finalPath = Path.Combine(dir, safeFile);
             _lastSaveDirectory = dir;
 
