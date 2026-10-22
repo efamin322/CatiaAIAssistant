@@ -1,17 +1,18 @@
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
+using CatiaAIAssistant.Core.Abstractions;
 using CatiaAIAssistant.Core.Logging;
 using CatiaAIAssistant.Core.Text;
 
 namespace CatiaAIAssistant.Infrastructure.Catia
 {
-    public sealed class CatiaDocumentManager
+    public sealed class CatiaDocumentManager : ICadDocumentService
     {
         private readonly CatiaConnectionService _connectionService;
-        private readonly OperationLogger _logger;
+        private readonly IOperationLogger _logger;
 
-        public CatiaDocumentManager(CatiaConnectionService connectionService, OperationLogger logger)
+        public CatiaDocumentManager(CatiaConnectionService connectionService, IOperationLogger logger)
         {
             _connectionService = connectionService;
             _logger = logger;
@@ -108,6 +109,33 @@ namespace CatiaAIAssistant.Infrastructure.Catia
                 _logger.Failed(opName, errMsg, ex.ToString());
                 return CadOperationResult.Failure(opName, errMsg, ex.ToString());
             }
+        }
+
+        public int GetOpenDocumentCount()
+        {
+            dynamic catia = _connectionService.AcquireCatiaSession();
+            return Convert.ToInt32(catia.Documents.Count);
+        }
+
+        /// <summary>Closes every open document (in reverse order). Each failure is reported, never swallowed (A-08).</summary>
+        public CloseDocumentsResult CloseAllDocuments()
+        {
+            const string opName = "CloseAllDocuments";
+            dynamic catia = _connectionService.AcquireCatiaSession();
+            int count = Convert.ToInt32(catia.Documents.Count);
+            var failures = new List<string>();
+            for (int i = count; i >= 1; i--)
+            {
+                try { catia.Documents.Item(i).Close(); }
+                catch (Exception closeEx) { failures.Add($"سند شماره {i}: {closeEx.Message}"); }
+            }
+
+            if (failures.Count == 0)
+                _logger.Succeeded(opName, $"درخواست بستن {count} سند اجرا شد.");
+            else
+                _logger.Log("CATIA", opName, OperationState.Failed, $"بعضی اسناد بسته نشدند: {string.Join(" | ", failures)}", LogSeverity.Warning);
+
+            return new CloseDocumentsResult { RequestedCount = count, Failures = failures };
         }
 
         public string? CreateBackupIfFileExists(string targetFilePath)
