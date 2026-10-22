@@ -2,21 +2,22 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
+using CatiaAIAssistant.Core.Abstractions;
 using CatiaAIAssistant.Core.Logging;
 using CatiaAIAssistant.Core.Text;
 
 namespace CatiaAIAssistant.Infrastructure.Catia
 {
-    public sealed class CatiaBasicPartService
+    public sealed class CatiaBasicPartService : IBasicPartService
     {
         private readonly CatiaConnectionService _connectionService;
         private readonly CatiaDocumentManager _documentManager;
-        private readonly OperationLogger _logger;
+        private readonly IOperationLogger _logger;
 
         public CatiaBasicPartService(
             CatiaConnectionService connectionService,
             CatiaDocumentManager documentManager,
-            OperationLogger logger)
+            IOperationLogger logger)
         {
             _connectionService = connectionService;
             _documentManager = documentManager;
