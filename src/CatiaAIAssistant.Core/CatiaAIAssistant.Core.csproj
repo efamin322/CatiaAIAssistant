@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Core: domain models, logging, abstractions. MUST NOT reference any other internal project, UI or COM (ARCHITECTURE_CONTRACT §2). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>CatiaAIAssistant.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="CatiaAIAssistant.Tests" />
+  </ItemGroup>
+</Project>
