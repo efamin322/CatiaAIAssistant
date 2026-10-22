@@ -141,6 +141,35 @@ namespace CatiaAIAssistant.Tests.Engineering
         }
 
         [Fact]
+        public void Gear_NamedValues_AreOrderIndependent_AndUnitAware()
+        {
+            // Teeth first, then module in inches-free mm; positional parsing would have swapped them.
+            var spec = _engine.AnalyzeUserRequest("چرخ‌دنده با 24 دندانه و ماژول 3 mm و عرض دندانه 1 in");
+            Assert.Equal(3.0, spec.Parameters["Module"].Value, 9);
+            Assert.Equal(24.0, spec.Parameters["TeethZ1"].Value, 9);
+            Assert.Equal(25.4, spec.Parameters["FaceWidth"].Value, 9);
+            Assert.Equal(ParameterStatus.SpecifiedByUser, spec.Parameters["FaceWidth"].Status);
+            Assert.Equal(ParameterStatus.AssumedByEngineeringRule, spec.Parameters["GearRatio"].Status);
+        }
+
+        [Fact]
+        public void CrankSlider_StrokeGiven_DerivesCrankRadius()
+        {
+            var spec = _engine.AnalyzeUserRequest("مکانیزم میل‌لنگ و پیستون با کورس 80 mm و طول شاتون 140 mm");
+            Assert.Equal(40.0, spec.Parameters["CrankRadius"].Value, 9);
+            Assert.Equal(140.0, spec.Parameters["RodLength"].Value, 9);
+            Assert.Equal(ParameterStatus.AssumedByEngineeringRule, spec.Parameters["PistonDia"].Status);
+        }
+
+        [Fact]
+        public void WrongUnitForNamedParameter_BlocksExecution()
+        {
+            var spec = _engine.AnalyzeUserRequest("چرخ‌دنده با ماژول 3 N و تعداد دندانه 24");
+            Assert.False(spec.CanExecuteNow);
+            Assert.Contains(spec.ContradictionsAndWarnings, w => w.Contains("مناسب نیست"));
+        }
+
+        [Fact]
         public void Report_ContainsTitleAndParameters()
         {
             var spec = _engine.AnalyzeUserRequest("یک چرخ‌دنده با ماژول 3 و تعداد دندانه 24");
