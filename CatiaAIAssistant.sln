@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatiaAIAssistant.Core", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatiaAIAssistant.Engineering", "src\CatiaAIAssistant.Engineering\CatiaAIAssistant.Engineering.csproj", "{AD34D74E-4715-49AC-9379-179BC535ECF8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatiaAIAssistant.Infrastructure.Catia", "src\CatiaAIAssistant.Infrastructure.Catia\CatiaAIAssistant.Infrastructure.Catia.csproj", "{3E08B3BD-BDD1-48B2-B833-AAF4C2D0BD0A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,10 +34,15 @@ Global
 		{AD34D74E-4715-49AC-9379-179BC535ECF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AD34D74E-4715-49AC-9379-179BC535ECF8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AD34D74E-4715-49AC-9379-179BC535ECF8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E08B3BD-BDD1-48B2-B833-AAF4C2D0BD0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E08B3BD-BDD1-48B2-B833-AAF4C2D0BD0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E08B3BD-BDD1-48B2-B833-AAF4C2D0BD0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E08B3BD-BDD1-48B2-B833-AAF4C2D0BD0A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{F0F0022A-DEDC-48CE-933D-5154CFB2BF5B} = {A9BD8969-7F80-495D-A373-947F83A34790}
 		{E5C61B42-0E17-4DBD-BD4D-B587227E92E4} = {A9BD8969-7F80-495D-A373-947F83A34790}
 		{AD34D74E-4715-49AC-9379-179BC535ECF8} = {A9BD8969-7F80-495D-A373-947F83A34790}
+		{3E08B3BD-BDD1-48B2-B833-AAF4C2D0BD0A} = {A9BD8969-7F80-495D-A373-947F83A34790}
 	EndGlobalSection
 EndGlobal
