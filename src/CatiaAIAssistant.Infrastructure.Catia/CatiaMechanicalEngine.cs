@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using CatiaAIAssistant.Core.Abstractions;
+using CatiaAIAssistant.Core.Commands;
 using CatiaAIAssistant.Core.Logging;
 using CatiaAIAssistant.Engineering;
 
@@ -28,147 +29,30 @@ namespace CatiaAIAssistant.Infrastructure.Catia
             _logger = logger;
         }
 
+        private CadPlanExecutor? _planExecutor;
+
+        /// <summary>Allowlisted operations backed by this engine (built lazily to avoid a construction cycle).</summary>
+        public CadOperationRegistry OperationRegistry => (_planExecutor ??= CreateExecutor()).Registry;
+
+        private CadPlanExecutor CreateExecutor() =>
+            new(CatiaOperationHandlers.CreateRegistry(this, _basicPartService), _logger);
+
+        /// <summary>
+        /// Executes the plan through <see cref="CadPlanExecutor"/>: every step must be an allowlisted operation
+        /// (ARCHITECTURE_CONTRACT §4, Spec §42). No operation-type switch lives here anymore.
+        /// </summary>
         public CadOperationResult ExecuteDesignSpecification(EngineeringDesignSpecification spec, string outputDirectory)
         {
-            string preflightError = ValidateExecutionPlan(spec);
-            if (!string.IsNullOrWhiteSpace(preflightError))
-                return CadOperationResult.Failure("PreflightValidation", preflightError);
-
             try
             {
-            _logger.EnsureWorkspaceDirectories();
-            Directory.CreateDirectory(outputDirectory);
-
-            var executedFiles = new Dictionary<string, string>();
-            CadOperationResult? lastResult = null;
-            string ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-
-            foreach (var step in spec.ExecutionPlan)
-            {
-                string ext = step.TargetDocumentName.EndsWith(".CATProduct", StringComparison.OrdinalIgnoreCase) ? ".CATProduct" : ".CATPart";
-                string baseName = CatiaDocumentManager.SanitizeIdentifier(Path.GetFileNameWithoutExtension(step.TargetDocumentName), "Part");
-                string targetPath = Path.Combine(outputDirectory, $"{baseName}_{ts}{ext}");
-
-                switch (step.OperationType)
-                {
-                    case "CreateBlock":
-                        lastResult = _basicPartService.CreateBlockPart(step.NumericInputs["X"], step.NumericInputs["Y"], step.NumericInputs["Z"], targetPath);
-                        break;
-                    case "CreateSteppedShaft":
-                        lastResult = CreateSteppedShaftPart(step.NumericInputs["D1"], step.NumericInputs["L1"], step.NumericInputs["D2"], step.NumericInputs["L2"], step.NumericInputs["D3"], step.NumericInputs["L3"], targetPath);
-                        break;
-                    case "CreateSpurGear":
-                        lastResult = CreateSpurGearPart(step.NumericInputs["Module"], (int)step.NumericInputs["Teeth"], step.NumericInputs["FaceWidth"], step.NumericInputs["BoreDiameter"], targetPath);
-                        break;
-                    case "AssembleGearPair":
-                        lastResult = CreateMultiPartAssembly("GearPair", new[]
-                        {
-                            (executedFiles["STEP_GEAR_1"], "Pinion_1", 0.0, 0.0, 0.0),
-                            (executedFiles["STEP_GEAR_2"], "Gear_2", step.NumericInputs["CenterDistance"], 0.0, 0.0)
-                        }, targetPath);
-                        break;
-                    case "CreateFlangeCoupling":
-                        lastResult = CreateFlangeCouplingPart(step.NumericInputs["ShaftBore"], targetPath);
-                        break;
-                    case "CreateCrankshaft":
-                        lastResult = CreateCrankshaftPart(step.NumericInputs["CrankRadius"], targetPath);
-                        break;
-                    case "CreateConnectingRod":
-                        lastResult = CreateConnectingRodPart(step.NumericInputs["RodLength"], targetPath);
-                        break;
-                    case "CreatePiston":
-                        lastResult = CreatePistonPart(step.NumericInputs["PistonDiameter"], targetPath);
-                        break;
-                    case "AssembleCrankSlider":
-                        double r = step.NumericInputs["CrankRadius"];
-                        double l = step.NumericInputs["RodLength"];
-                        lastResult = CreateMultiPartAssembly("CrankSlider", new[]
-                        {
-                            (executedFiles["STEP_CRANK"], "Crank", 0.0, 0.0, 0.0),
-                            (executedFiles["STEP_ROD"], "Rod", r, 0.0, 12.0),
-                            (executedFiles["STEP_PISTON"], "Piston", r + l, 0.0, 12.0)
-                        }, targetPath);
-                        break;
-                    case "CreateQuadcopterFrame":
-                        lastResult = CreateQuadcopterFramePart(step.NumericInputs["Wheelbase"], targetPath);
-                        break;
-                    case "CreateMotorDummy":
-                        lastResult = _basicPartService.CreateShapePart("دایره", 14.0, 0, 0, 26.0, targetPath);
-                        break;
-                    case "AssembleQuadcopter":
-                        double off = (step.NumericInputs["Wheelbase"] / 2.0) * 0.7071;
-                        string f = executedFiles["STEP_QUAD_FRAME"];
-                        string m = executedFiles["STEP_QUAD_MOTOR"];
-                        lastResult = CreateMultiPartAssembly("Quadcopter", new[]
-                        {
-                            (f, "MainFrame", 0.0, 0.0, 0.0),
-                            (m, "Motor_1", off, off, 8.0),
-                            (m, "Motor_2", -off, off, 8.0),
-                            (m, "Motor_3", -off, -off, 8.0),
-                            (m, "Motor_4", off, -off, 8.0)
-                        }, targetPath);
-                        break;
-                    case "CreateCarChassis":
-                        lastResult = _basicPartService.CreateBlockPart(step.NumericInputs["Length"], step.NumericInputs["Width"], 12.0, targetPath);
-                        break;
-                    case "CreateCarWheel":
-                        lastResult = _basicPartService.CreateShapePart("دایره", step.NumericInputs["WheelDiameter"] / 2.0, 0, 0, 14.0, targetPath);
-                        break;
-                    case "AssembleToyCar":
-                        double cl = step.NumericInputs["Length"];
-                        double cw = step.NumericInputs["Width"];
-                        string cf = executedFiles["STEP_CAR_CHASSIS"];
-                        string wf = executedFiles["STEP_CAR_WHEEL"];
-                        lastResult = CreateMultiPartAssembly("ToyCar", new[]
-                        {
-                            (cf, "Chassis", 0.0, 0.0, 0.0),
-                            (wf, "Wheel_FL", cl * 0.2, -15.0, 5.0),
-                            (wf, "Wheel_FR", cl * 0.2, cw + 2.0, 5.0),
-                            (wf, "Wheel_RL", cl * 0.8, -15.0, 5.0),
-                            (wf, "Wheel_RR", cl * 0.8, cw + 2.0, 5.0)
-                        }, targetPath);
-                        break;
-                    default:
-                        return CadOperationResult.Failure(step.OperationType, $"نوع عملیات «{step.OperationType}» در موتور CAD پیاده‌سازی نشده است.");
-                }
-
-                if (lastResult == null || lastResult.FinalState != OperationState.Succeeded)
-                    return lastResult ?? CadOperationResult.Failure(step.StepId, "خطا در اجرای مرحله.");
-
-                executedFiles[step.StepId] = targetPath;
-            }
-
-            return lastResult ?? CadOperationResult.Failure("ExecuteDesignSpecification", "هیچ عملیات CAD اجرا نشد.");
+                var report = (_planExecutor ??= CreateExecutor()).Execute(spec, outputDirectory);
+                return report.LastResult ?? CadOperationResult.Failure("ExecuteDesignSpecification", report.Summary);
             }
             catch (Exception ex)
             {
                 _logger.Failed("ExecuteDesignSpecification", "اجرای طرح متوقف شد.", ex.ToString(), "CAD");
                 return CadOperationResult.Failure("ExecuteDesignSpecification", "اجرای طرح به‌دلیل خطای پیش‌بینی‌نشده متوقف شد. گزارش فنی در گزارش نشست ثبت شد.", ex.ToString());
             }
-        }
-
-        private static string ValidateExecutionPlan(EngineeringDesignSpecification? spec)
-        {
-            if (spec == null) return "طرح مهندسی خالی است.";
-            if (!spec.CanExecuteNow) return "طرح هنوز آماده اجرا نیست. پرسش‌ها و هشدارهای گزارش تحلیل را برطرف کنید.";
-            if (spec.ExecutionPlan.Count == 0) return "برنامه اجرایی خالی است؛ هیچ عملیات CAD برای اجرا تعریف نشده است.";
-
-            var knownIds = new HashSet<string>(spec.ExecutionPlan.Select(s => s.StepId), StringComparer.OrdinalIgnoreCase);
-            var completedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var step in spec.ExecutionPlan)
-            {
-                if (string.IsNullOrWhiteSpace(step.StepId)) return "یکی از گام‌های اجرایی شناسه ندارد.";
-                foreach (var prerequisite in step.PrerequisiteStepIds)
-                {
-                    if (!knownIds.Contains(prerequisite)) return $"گام «{step.StepId}» به گام تعریف‌نشده «{prerequisite}» وابسته است.";
-                    if (!completedIds.Contains(prerequisite)) return $"ترتیب برنامه نامعتبر است: پیش‌نیاز «{prerequisite}» پیش از «{step.StepId}» اجرا نشده است.";
-                }
-                foreach (var input in step.NumericInputs)
-                    if (double.IsNaN(input.Value) || double.IsInfinity(input.Value) || input.Value <= 0)
-                        return $"ورودی «{input.Key}» در گام «{step.StepId}» نامعتبر است؛ مقدار باید محدود و بزرگ‌تر از صفر باشد.";
-                completedIds.Add(step.StepId);
-            }
-            return string.Empty;
         }
 
         public CadOperationResult CreateSteppedShaftPart(double d1, double l1, double d2, double l2, double d3, double l3, string outputPath)
