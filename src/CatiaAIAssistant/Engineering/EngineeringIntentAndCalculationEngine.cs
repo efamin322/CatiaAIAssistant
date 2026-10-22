@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
-using CatiaAIAssistant.Infrastructure.Catia;
+using CatiaAIAssistant.Core.Text;
 
 namespace CatiaAIAssistant.Engineering
 {
@@ -11,7 +11,7 @@ namespace CatiaAIAssistant.Engineering
     {
         public EngineeringDesignSpecification AnalyzeUserRequest(string rawPrompt)
         {
-            string prompt = CatiaBasicPartService.NormalizeDigits(rawPrompt?.Trim() ?? string.Empty);
+            string prompt = TextNormalizer.NormalizeDigits(rawPrompt?.Trim() ?? string.Empty);
             var spec = new EngineeringDesignSpecification { RawUserPrompt = rawPrompt ?? string.Empty };
             var nums = ExtractNumbers(prompt);
 
@@ -334,15 +334,7 @@ namespace CatiaAIAssistant.Engineering
         }
 
         private static List<double> ExtractNumbers(string text)
-        {
-            var list = new List<double>();
-            foreach (Match m in Regex.Matches(text, @"\d+(?:[.,]\d+)?"))
-            {
-                if (double.TryParse(m.Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double v) && v > 0)
-                    list.Add(v);
-            }
-            return list;
-        }
+            => TextNormalizer.ExtractNumbers(text).Where(v => v > 0).ToList();
 
         private static bool ContainsAny(string text, params string[] terms)
         {
