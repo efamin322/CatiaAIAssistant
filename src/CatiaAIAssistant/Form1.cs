@@ -787,7 +787,7 @@ namespace CatiaAIAssistant
 
         private void CheckCatiaConnection(object? sender, EventArgs e)
         {
-            CatiaConnectionInfo info = _connectionService.CheckConnection();
+            var info = _connectionService.CheckConnection();
             if (info.IsConnected)
             {
                 _connectionStatus.Text = $"● متصل ({info.OpenDocumentsCount} سند باز)";
