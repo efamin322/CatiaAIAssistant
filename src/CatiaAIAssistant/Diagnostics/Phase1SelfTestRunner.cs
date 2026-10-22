@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using CatiaAIAssistant.Core.Abstractions;
 using CatiaAIAssistant.Core.Logging;
-using CatiaAIAssistant.Infrastructure.Catia;
+using CatiaAIAssistant.Core.Text;
 using CatiaAIAssistant.Engineering;
 
 namespace CatiaAIAssistant.Diagnostics
@@ -21,14 +22,17 @@ namespace CatiaAIAssistant.Diagnostics
 
     public sealed class Phase1SelfTestRunner
     {
-        private readonly OperationLogger _logger;
-        private readonly CatiaConnectionService _connectionService;
-        private readonly CatiaDocumentManager _documentManager;
-        private readonly CatiaBasicPartService _partService;
+        private readonly IOperationLogger _logger;
+        private readonly ICadConnectionService _connectionService;
+        private readonly ICadDocumentService _documentManager;
+        private readonly IBasicPartService _partService;
+        private readonly IEngineeringIntentAnalyzer _intentAnalyzer;
 
-        public Phase1SelfTestRunner(OperationLogger logger, CatiaConnectionService connectionService, CatiaDocumentManager documentManager, CatiaBasicPartService partService)
+        public Phase1SelfTestRunner(IOperationLogger logger, ICadConnectionService connectionService, ICadDocumentService documentManager,
+                                    IBasicPartService partService, IEngineeringIntentAnalyzer intentAnalyzer)
         {
-            _logger = logger; _connectionService = connectionService; _documentManager = documentManager; _partService = partService;
+            _logger = logger; _connectionService = connectionService; _documentManager = documentManager;
+            _partService = partService; _intentAnalyzer = intentAnalyzer;
         }
 
         public IReadOnlyList<SelfTestCaseResult> RunPhase1Suite(bool includeCatiaLiveTests)
@@ -58,7 +62,7 @@ namespace CatiaAIAssistant.Diagnostics
         {
             try
             {
-                bool okValid = CatiaBasicPartService.TryParseBlockDimensionsFromText("یک مکعب با ابعاد ۴۰ در ۲۵.۵ در ۱۲ میلی‌متر بساز", out double x, out double y, out double z, out string err);
+                bool okValid = TextNormalizer.TryParseBlockDimensions("یک مکعب با ابعاد ۴۰ در ۲۵.۵ در ۱۲ میلی‌متر بساز", out double x, out double y, out double z, out string err);
                 if (okValid && Math.Abs(x - 40.0) < 1e-6 && Math.Abs(z - 12.0) < 1e-6)
                     return new SelfTestCaseResult { TestId = "T1.1", Title = "تبدیل ارقام", Category = TestCategory.AutomatedUnit, State = OperationState.Succeeded, Details = "استخراج ابعاد تأیید شد." };
                 return new SelfTestCaseResult { TestId = "T1.1", Title = "تبدیل ارقام", Category = TestCategory.AutomatedUnit, State = OperationState.Failed, Details = err };
@@ -70,7 +74,7 @@ namespace CatiaAIAssistant.Diagnostics
         {
             try
             {
-                var engine = new EngineeringIntentAndCalculationEngine();
+                var engine = _intentAnalyzer;
                 var spec = engine.AnalyzeUserRequest("برای من یک هواپیمای مسافربری طراحی کن");
                 bool ok = spec.Domain == EngineeringDomain.Unknown && !spec.CanExecuteNow && spec.ExecutionPlan.Count == 0;
                 return new SelfTestCaseResult
@@ -92,7 +96,7 @@ namespace CatiaAIAssistant.Diagnostics
         {
             try
             {
-                var engine = new EngineeringIntentAndCalculationEngine();
+                var engine = _intentAnalyzer;
                 var spec = engine.AnalyzeUserRequest("یک شفت پله‌ای طراحی کن");
                 bool ok = spec.HasAssumedParameters;
                 return new SelfTestCaseResult
@@ -112,7 +116,7 @@ namespace CatiaAIAssistant.Diagnostics
 
         private SelfTestCaseResult TestIdentifierSanitization()
         {
-            string sanitized = CatiaDocumentManager.SanitizeIdentifier("مستطیل ۱*۲", "PART");
+            string sanitized = TextNormalizer.SanitizeIdentifier("مستطیل ۱*۲", "PART");
             if (sanitized.StartsWith("Rect"))
                 return new SelfTestCaseResult { TestId = "T1.2", Title = "نام‌گذاری استاندارد", Category = TestCategory.AutomatedUnit, State = OperationState.Succeeded, Details = "تأیید شد." };
             return new SelfTestCaseResult { TestId = "T1.2", Title = "نام‌گذاری", Category = TestCategory.AutomatedUnit, State = OperationState.Failed, Details = "خطا" };
