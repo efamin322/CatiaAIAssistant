@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CatiaAIAssistant.Core\CatiaAIAssistant.Core.csproj" />
     <ProjectReference Include="..\CatiaAIAssistant.Engineering\CatiaAIAssistant.Engineering.csproj" />
+    <ProjectReference Include="..\CatiaAIAssistant.Infrastructure.Catia\CatiaAIAssistant.Infrastructure.Catia.csproj" />
   </ItemGroup>
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
