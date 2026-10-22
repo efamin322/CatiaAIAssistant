@@ -7,7 +7,7 @@ using CatiaAIAssistant.Core.Text;
 
 namespace CatiaAIAssistant.Engineering
 {
-    public sealed class EngineeringIntentAndCalculationEngine
+    public sealed class EngineeringIntentAndCalculationEngine : CatiaAIAssistant.Core.Abstractions.IEngineeringIntentAnalyzer
     {
         /// <summary>Below this L/r ratio the slider-crank has excessive side thrust (typical engine practice: L/r ≈ 3–4).</summary>
         public const double MinRodToCrankRatio = 2.5;
