@@ -3,23 +3,24 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using CatiaAIAssistant.Core.Abstractions;
 using CatiaAIAssistant.Core.Logging;
 using CatiaAIAssistant.Engineering;
 
 namespace CatiaAIAssistant.Infrastructure.Catia
 {
-    public sealed class CatiaMechanicalEngine
+    public sealed class CatiaMechanicalEngine : IDesignExecutionEngine
     {
         private readonly CatiaConnectionService _connectionService;
         private readonly CatiaDocumentManager _documentManager;
         private readonly CatiaBasicPartService _basicPartService;
-        private readonly OperationLogger _logger;
+        private readonly IOperationLogger _logger;
 
         public CatiaMechanicalEngine(
             CatiaConnectionService connectionService,
             CatiaDocumentManager documentManager,
             CatiaBasicPartService basicPartService,
-            OperationLogger logger)
+            IOperationLogger logger)
         {
             _connectionService = connectionService;
             _documentManager = documentManager;
