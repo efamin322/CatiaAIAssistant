@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text.RegularExpressions;
 using CatiaAIAssistant.Core.Logging;
+using CatiaAIAssistant.Core.Text;
 
 namespace CatiaAIAssistant.Infrastructure.Catia
 {
@@ -16,37 +17,8 @@ namespace CatiaAIAssistant.Infrastructure.Catia
             _logger = logger;
         }
 
-        public static string SanitizeIdentifier(string rawName, string prefix = "PART")
-        {
-            if (string.IsNullOrWhiteSpace(rawName))
-            {
-                return $"{prefix}_{DateTime.Now:yyyyMMdd_HHmmss}";
-            }
-
-            string normalized = rawName.Trim()
-                .Replace("مستطیل", "Rect")
-                .Replace("مربع", "Square")
-                .Replace("دایره", "Circle")
-                .Replace("مثلث", "Triangle")
-                .Replace("چندضلعی", "Polygon")
-                .Replace("بلوک", "Block")
-                .Replace("مکعب", "Block");
-
-            foreach (char invalid in Path.GetInvalidFileNameChars())
-            {
-                normalized = normalized.Replace(invalid, '_');
-            }
-
-            normalized = Regex.Replace(normalized, @"[^a-zA-Z0-9_\-]", "_");
-            normalized = Regex.Replace(normalized, @"_+", "_").Trim('_');
-
-            if (string.IsNullOrWhiteSpace(normalized))
-            {
-                normalized = prefix;
-            }
-
-            return normalized;
-        }
+        /// <summary>Kept for backward compatibility; delegates to <see cref="TextNormalizer.SanitizeIdentifier"/>.</summary>
+        public static string SanitizeIdentifier(string rawName, string prefix = "PART") => TextNormalizer.SanitizeIdentifier(rawName, prefix);
 
         public dynamic? FindOpenDocumentByPathOrName(dynamic catia, string filePath)
         {
