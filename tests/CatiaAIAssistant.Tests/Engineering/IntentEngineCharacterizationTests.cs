@@ -98,6 +98,27 @@ namespace CatiaAIAssistant.Tests.Engineering
         }
 
         [Fact]
+        public void CrankSlider_ShortRodRatio_IsReplacedOnlyAsFlaggedAssumption()
+        {
+            // r = 30, L = 60 -> L/r = 2 < 2.5 -> proposed L = 3.5·30 = 105 mm, flagged
+            var spec = _engine.AnalyzeUserRequest("مکانیزم میل‌لنگ و پیستون با شعاع لنگ 30 و شاتون 60 و قطر پیستون 65");
+            Assert.Equal(105.0, spec.Parameters["RodLength"].Value, 9);
+            Assert.Equal(ParameterStatus.AssumedByEngineeringRule, spec.Parameters["RodLength"].Status);
+            Assert.True(spec.HasAssumedParameters);
+            Assert.NotEmpty(spec.Assumptions);
+        }
+
+        [Fact]
+        public void CrankSlider_Stroke_IsTwiceCrankRadius()
+        {
+            var spec = _engine.AnalyzeUserRequest("مکانیزم میل‌لنگ و پیستون با شعاع لنگ 30 و شاتون 110 و قطر پیستون 65");
+            Assert.Equal(60.0, spec.Parameters["Stroke"].Value, 9);
+            Assert.Equal(110.0, spec.Parameters["RodLength"].Value, 9);
+            Assert.Equal(ParameterStatus.SpecifiedByUser, spec.Parameters["RodLength"].Status);
+            Assert.True(spec.CanExecuteNow);
+        }
+
+        [Fact]
         public void EveryExecutablePlan_HasPositiveFiniteInputs()
         {
             string[] prompts =
