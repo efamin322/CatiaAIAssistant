@@ -127,14 +127,19 @@ namespace CatiaAIAssistant.Infrastructure.Catia
 
         public void CloseIfOpenWithSameTarget(dynamic catia, string targetFilePath, dynamic currentWorkingDocument)
         {
-            dynamic? conflictDoc = FindOpenDocumentByPathOrName(catia, targetFilePath);
-            if (conflictDoc != null && !ReferenceEquals(conflictDoc, currentWorkingDocument))
+            object? conflict = FindOpenDocumentByPathOrName(catia, targetFilePath);
+            if (conflict is null || ReferenceEquals(conflict, currentWorkingDocument)) return;
+
+            dynamic conflictDoc = conflict;
+            try
             {
-                try
-                {
-                    conflictDoc.Close();
-                }
-                catch { }
+                conflictDoc.Close();
+                _logger.Info($"سند هم‌مسیر قبلی بسته شد تا ذخیره ممکن شود: {targetFilePath}", "DocumentManager");
+            }
+            catch (Exception ex)
+            {
+                // Audit A-08: never swallow COM failures silently.
+                _logger.Log("CATIA", "CloseConflictingDocument", OperationState.Failed, $"بستن سند هم‌مسیر ناموفق بود: {ex.Message}", LogSeverity.Warning);
             }
         }
 
