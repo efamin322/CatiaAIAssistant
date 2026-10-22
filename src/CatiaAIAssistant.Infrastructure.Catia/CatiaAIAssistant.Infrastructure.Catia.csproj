@@ -7,8 +7,4 @@
   <ItemGroup>
     <ProjectReference Include="..\CatiaAIAssistant.Core\CatiaAIAssistant.Core.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <!-- 'dynamic' late binding to COM requires the C# runtime binder -->
-    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-  </ItemGroup>
 </Project>
