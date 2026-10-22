@@ -9,6 +9,11 @@ namespace CatiaAIAssistant.Engineering
 {
     public sealed class EngineeringIntentAndCalculationEngine
     {
+        /// <summary>Below this L/r ratio the slider-crank has excessive side thrust (typical engine practice: L/r ≈ 3–4).</summary>
+        public const double MinRodToCrankRatio = 2.5;
+        /// <summary>Value proposed (and flagged as an assumption) when the user's L/r is below <see cref="MinRodToCrankRatio"/>.</summary>
+        public const double RecommendedRodToCrankRatio = 3.5;
+
         public EngineeringDesignSpecification AnalyzeUserRequest(string rawPrompt)
         {
             string prompt = TextNormalizer.NormalizeDigits(rawPrompt?.Trim() ?? string.Empty);
@@ -214,10 +219,24 @@ namespace CatiaAIAssistant.Engineering
             double r = nums.Count >= 1 ? nums[0] : 30.0;
             double l = nums.Count >= 2 ? nums[1] : 110.0;
             double d = nums.Count >= 3 ? nums[2] : 65.0;
-            if (l < r * 2.5) l = r * 3.5;
+            var rodStatus = nums.Count >= 2 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule;
+            if (l <= r)
+            {
+                // Geometrically impossible: keep the user's value so validation blocks execution (no silent correction).
+                spec.ContradictionsAndWarnings.Add($"طول شاتون واردشده ({l} mm) از شعاع لنگ ({r} mm) بزرگ‌تر نیست؛ مکانیزم قابل مونتاژ نیست.");
+            }
+            else if (l < r * MinRodToCrankRatio)
+            {
+                // Feasible but kinematically poor; proposing a value is allowed only as an explicit, flagged assumption.
+                double proposed = r * RecommendedRodToCrankRatio;
+                spec.Assumptions.Add($"طول شاتون {l} mm کمتر از {MinRodToCrankRatio}×r است؛ مقدار {proposed} mm (λ≈{1.0 / RecommendedRodToCrankRatio:F2}) پیشنهاد و جایگزین شد و نیاز به تأیید دارد.");
+                spec.ContradictionsAndWarnings.Add($"طول شاتون از {l} به {proposed} میلی‌متر تغییر یافت (نسبت L/r کمتر از {MinRodToCrankRatio}). پیش از اجرا تأیید کنید.");
+                l = proposed;
+                rodStatus = ParameterStatus.AssumedByEngineeringRule;
+            }
 
             AddParam(spec, "CrankRadius", "شعاع لنگ (r)", r, "mm", nums.Count >= 1 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "نصف کورس پیستون");
-            AddParam(spec, "RodLength", "طول شاتون (L)", l, "mm", nums.Count >= 2 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "فاصله مرکز دو یاتاقان شاتون");
+            AddParam(spec, "RodLength", "طول شاتون (L)", l, "mm", rodStatus, "فاصله مرکز دو یاتاقان شاتون");
             AddParam(spec, "PistonDia", "قطر پیستون (D)", d, "mm", nums.Count >= 3 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "قطر سیلندر");
             AddParam(spec, "Stroke", "کورس پیستون (S)", 2.0 * r, "mm", ParameterStatus.Calculated, "S = 2r");
 
