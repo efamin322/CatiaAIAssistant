@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Engineering: calculations, intent analysis, validation. References Core ONLY; no UI, no COM (ARCHITECTURE_CONTRACT §2). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>CatiaAIAssistant.Engineering</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CatiaAIAssistant.Core\CatiaAIAssistant.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="CatiaAIAssistant.Tests" />
+  </ItemGroup>
+</Project>
