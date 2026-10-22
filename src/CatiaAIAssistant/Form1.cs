@@ -668,7 +668,7 @@ namespace CatiaAIAssistant
         private void BuildSettingsPage()
         {
             var card = CreateCard("تنظیمات ارتباط COM و پوشه کاری",
-                $"ProgID: {CatiaConnectionService.DefaultProgId}\r\nپوشه ذخیره قطعات: {_logger.PartsOutputDirectory}");
+                $"ProgID: CATIA.Application\r\nپوشه ذخیره قطعات: {_logger.PartsOutputDirectory}");
             card.Height = 160;
             AddCardButton(card, "بررسی اتصال CATIA", () => CheckCatiaConnection(this, EventArgs.Empty));
             AddCardButton(card, "بازکردن پوشه قطعات", OpenWorkspaceFolder);
