@@ -1,0 +1,83 @@
+name: Release
+
+# Push a tag like v0.2.0 to publish a downloadable/installable release.
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to (re)build, e.g. v0.1.0'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  APP_PROJECT: src/CatiaAIAssistant/CatiaAIAssistant.csproj
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag }}"
+          if (-not $tag) { $tag = "${{ github.ref_name }}" }
+          $version = $tag.TrimStart('v')
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build & test (no CATIA)
+        shell: pwsh
+        run: |
+          dotnet build CatiaAIAssistant.sln -c Release -p:Version=${{ steps.ver.outputs.version }}
+          $tests = Get-ChildItem -Recurse -Filter *.Tests.csproj
+          if ($tests.Count -gt 0) { dotnet test CatiaAIAssistant.sln -c Release --no-build --filter "Category!=CatiaIntegration" }
+
+      - name: Publish self-contained win-x64
+        run: dotnet publish ${{ env.APP_PROJECT }} -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:Version=${{ steps.ver.outputs.version }} -o publish/win-x64
+
+      - name: Portable ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          Compress-Archive -Path publish/win-x64/* -DestinationPath "artifacts/CatiaAIAssistant-${{ steps.ver.outputs.version }}-win-x64-portable.zip"
+
+      - name: Installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc "/DAppVersion=${{ steps.ver.outputs.version }}" "/DSourceDir=$PWD\publish\win-x64" installer\CatiaAIAssistant.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Source package
+        run: git archive --format=zip -o artifacts/CatiaAIAssistant_Complete_Engineering-${{ steps.ver.outputs.version }}.zip HEAD
+
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem artifacts -File | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          } | Set-Content artifacts/SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: CATIA AI Assistant ${{ steps.ver.outputs.tag }}
+          generate_release_notes: true
+          prerelease: ${{ startsWith(steps.ver.outputs.version, '0.') }}
+          files: artifacts/*
