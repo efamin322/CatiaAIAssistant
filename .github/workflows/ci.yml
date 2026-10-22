@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore CatiaAIAssistant.sln
+
+      - name: Build
+        run: dotnet build CatiaAIAssistant.sln -c Release --no-restore
+
+      - name: Test (no CATIA required)
+        shell: pwsh
+        run: |
+          $tests = Get-ChildItem -Recurse -Filter *.Tests.csproj
+          if ($tests.Count -eq 0) { Write-Host "No test projects yet."; exit 0 }
+          dotnet test CatiaAIAssistant.sln -c Release --no-build --filter "Category!=CatiaIntegration" --logger "trx" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+          if-no-files-found: ignore
