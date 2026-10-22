@@ -3,6 +3,15 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-22
+### Added
+- **M8 — Units & dimensions (Spec §11):** `Dimension` (L, M, T, Θ, angle + absolute-temperature marker), `Unit`, built-in catalog for every quantity in §11 (length, area, volume, mass, force, torque, pressure/stress, strain, linear/angular velocity, acceleration, power, energy, temperature, temperature difference, angle, stiffness), `UnitRegistry` with English and Persian aliases, `Quantity` with stored input unit, explicit conversion, dimension-checked `+ − < >`, point/interval temperature rules (T−T=ΔT, T+ΔT=T, T+T forbidden), exact rpm ↔ rad/s, explicit `DropAngle()` for P=T·ω, display precision separated from computation, `QuantityParser` (FA/EN).
+- **M9 — Parameter extraction & ambiguity (Spec §06–§08):** `ParameterVocabulary` (extensible FA/EN parameter names with dimension and default unit), `ParameterExtractor` (prefix/postfix binding, units, qualifiers at-least/at-most/about, standards such as ISO/DIN, traceable source text, confidence; issues for default units, unit mismatch, conflicting values, invalid values, unassigned numbers), `ClarificationPlanner` (required vs. assumable vs. optional, priority order, no re-asking, design effect, how-to-measure hints, safety-critical assumptions need approval), problem templates (shaft, spur gear, gear pair, slider-crank, bearing, compression spring, block), `RequirementSpecification` with `REQ-nnn` IDs and pluggable consistency rules (rod > crank, bore < root diameter, centre distance, stroke = 2r, P = T·ω).
+### Changed
+- Intent engine prefers named, unit-aware values over positional numbers for gears and slider-crank; blocking extraction issues stop execution.
+### Tests
+- 177 automated tests (was 88), all passing without CATIA.
+
 ## [0.3.0] - 2026-10-22
 ### Added
 - **M3 — Interfaces & Composition Root:** `IOperationLogger`, `ICadConnectionService`, `ICadDocumentService`, `IBasicPartService`,
