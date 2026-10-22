@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using CatiaAIAssistant.Core.Abstractions;
 
 namespace CatiaAIAssistant.Core.Logging
 {
-    public sealed class OperationLogger
+    public sealed class OperationLogger : IOperationLogger
     {
         private readonly List<OperationLogEntry> _entries = new();
         private readonly object _syncLock = new();
@@ -22,9 +23,15 @@ namespace CatiaAIAssistant.Core.Logging
         public string SessionLogFilePath => _sessionLogFilePath;
 
         public OperationLogger()
+            : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CATIA_AI_Workspace"))
         {
-            string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            _workspaceRoot = Path.Combine(documents, "CATIA_AI_Workspace");
+        }
+
+        /// <summary>Creates a logger rooted at an explicit workspace (used by tests and custom configurations).</summary>
+        public OperationLogger(string workspaceRoot)
+        {
+            if (string.IsNullOrWhiteSpace(workspaceRoot)) throw new ArgumentException("Workspace root is required.", nameof(workspaceRoot));
+            _workspaceRoot = workspaceRoot;
             _logDirectory = Path.Combine(_workspaceRoot, "Logs");
 
             EnsureWorkspaceDirectories();
