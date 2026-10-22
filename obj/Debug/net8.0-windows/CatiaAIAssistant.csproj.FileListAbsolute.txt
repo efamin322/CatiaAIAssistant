@@ -1,0 +1,14 @@
+C:\Users\Amin\Desktop\CatiaAIAssistant\obj\Debug\net8.0-windows\CatiaAIAssistant.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Amin\Desktop\CatiaAIAssistant\obj\Debug\net8.0-windows\CatiaAIAssistant.AssemblyInfoInputs.cache
+C:\Users\Amin\Desktop\CatiaAIAssistant\obj\Debug\net8.0-windows\CatiaAIAssistant.AssemblyInfo.cs
+C:\Users\Amin\Desktop\CatiaAIAssistant\obj\Debug\net8.0-windows\CatiaAIAssistant.csproj.CoreCompileInputs.cache
+C:\Users\Amin\Desktop\CatiaAIAssistant\bin\Debug\net8.0-windows\CatiaAIAssistant.exe
+C:\Users\Amin\Desktop\CatiaAIAssistant\bin\Debug\net8.0-windows\CatiaAIAssistant.deps.json
+C:\Users\Amin\Desktop\CatiaAIAssistant\bin\Debug\net8.0-windows\CatiaAIAssistant.runtimeconfig.json
+C:\Users\Amin\Desktop\CatiaAIAssistant\bin\Debug\net8.0-windows\CatiaAIAssistant.dll
+C:\Users\Amin\Desktop\CatiaAIAssistant\bin\Debug\net8.0-windows\CatiaAIAssistant.pdb
+C:\Users\Amin\Desktop\CatiaAIAssistant\obj\Debug\net8.0-windows\CatiaAIAssistant.dll
+C:\Users\Amin\Desktop\CatiaAIAssistant\obj\Debug\net8.0-windows\refint\CatiaAIAssistant.dll
+C:\Users\Amin\Desktop\CatiaAIAssistant\obj\Debug\net8.0-windows\CatiaAIAssistant.pdb
+C:\Users\Amin\Desktop\CatiaAIAssistant\obj\Debug\net8.0-windows\CatiaAIAssistant.genruntimeconfig.cache
+C:\Users\Amin\Desktop\CatiaAIAssistant\obj\Debug\net8.0-windows\ref\CatiaAIAssistant.dll
