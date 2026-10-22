@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- CAD Integration: CATIA V5 COM automation (late-bound). References Core ONLY (ARCHITECTURE_CONTRACT §2). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>CatiaAIAssistant.Infrastructure.Catia</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CatiaAIAssistant.Core\CatiaAIAssistant.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 'dynamic' late binding to COM requires the C# runtime binder -->
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+  </ItemGroup>
+</Project>
