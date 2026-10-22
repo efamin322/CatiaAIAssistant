@@ -3,6 +3,27 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-22
+### Added
+- **M3 — Interfaces & Composition Root:** `IOperationLogger`, `ICadConnectionService`, `ICadDocumentService`, `IBasicPartService`,
+  `IDesignExecutionEngine`, `IEngineeringIntentAnalyzer` in `Core.Abstractions`; `CatiaServices` module factory;
+  `AppComposition` is the only place that wires concrete types. `Form1` receives services by constructor and no longer touches COM.
+- **M5 — Project model & workflow:** `EngineeringProject` (requirements, assumptions with approval, files, history, version) and a
+  rule-based `ProjectWorkflow` state machine `Draft → Requirements → Analysis → Design → Validation → Execution → Review → Completed`
+  with pluggable `ITransitionRule` guards (no skipping; no execution without specification, plan, confirmed assumptions and user approval).
+- **M6 — Commands & allowlist:** `CadOperationDescriptor` (inputs, risk, undo, failure & verification metadata), `ICadOperationHandler`,
+  `CadOperationRegistry` (case-sensitive allowlist) and `CadPlanExecutor` (preflight validation, unique command IDs, stop-on-failure,
+  remaining steps marked Skipped). All 15 CATIA operations registered in `CatiaOperationHandlers`.
+- **M7 — Errors & lifecycle:** `ErrorTranslator` (COM HRESULT / IO / network / resource classification → user + technical message),
+  cooperative cancellation between steps, `ComObjectTracker` for deterministic RCW release, global unhandled-exception handling,
+  CAD execution on an STA worker thread (UI stays responsive) and close-while-running protection.
+- Contract tests: only the Composition Root may reference Infrastructure; no `dynamic`/COM in UI; no service construction outside the root.
+### Changed
+- `CatiaMechanicalEngine.ExecuteDesignSpecification` no longer contains an operation `switch`; it delegates to `CadPlanExecutor` (contract §4).
+- `OperationLogger` accepts an explicit workspace root (testability).
+### Tests
+- 88 automated tests (was 49), all passing without CATIA.
+
 ## [0.2.0] - 2026-10-22
 ### Changed
 - **Modular split (M2):** solution now has `CatiaAIAssistant.Core` (net8.0), `CatiaAIAssistant.Engineering` (net8.0), `CatiaAIAssistant.Infrastructure.Catia` (net8.0-windows) and the WinForms App.
