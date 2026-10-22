@@ -1,12 +1,12 @@
-<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="15.0">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <FileUpgradeFlags>40</FileUpgradeFlags>
-    <UpgradeBackupLocation>C:\Users\Amin\Desktop\New folder\CatiaAIAssistant_Engineering_Foundation\CatiaAIAssistant\Backup1\</UpgradeBackupLocation>
-    <OldToolsVersion>15.0</OldToolsVersion>
+    <AssemblyName>CatiaAIAssistant</AssemblyName>
+    <RootNamespace>CatiaAIAssistant</RootNamespace>
+    <Product>CATIA AI Engineering Assistant</Product>
   </PropertyGroup>
 </Project>
