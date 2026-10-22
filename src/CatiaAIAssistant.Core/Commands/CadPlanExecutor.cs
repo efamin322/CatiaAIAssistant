@@ -1,4 +1,5 @@
 using CatiaAIAssistant.Core.Abstractions;
+using CatiaAIAssistant.Core.Errors;
 using CatiaAIAssistant.Core.Logging;
 using CatiaAIAssistant.Core.Text;
 using CatiaAIAssistant.Engineering;
@@ -23,6 +24,8 @@ namespace CatiaAIAssistant.Core.Commands
     {
         public bool Succeeded { get; set; }
         public bool Cancelled { get; set; }
+        /// <summary>Classification of the exception that stopped execution, if any.</summary>
+        public ErrorKind? ErrorKind { get; set; }
         public string Summary { get; set; } = string.Empty;
         public List<CommandRecord> Commands { get; } = new();
         public CadOperationResult? LastResult { get; set; }
@@ -132,7 +135,9 @@ namespace CatiaAIAssistant.Core.Commands
                 }
                 catch (Exception ex)
                 {
-                    result = CadOperationResult.Failure(step.OperationType, $"گام «{step.StepId}» با خطا متوقف شد: {ex.Message}", ex.ToString());
+                    var err = ErrorTranslator.Translate(ex);
+                    result = CadOperationResult.Failure(step.OperationType, $"گام «{step.StepId}» متوقف شد: {err.UserMessage}", err.TechnicalDetails);
+                    report.ErrorKind = err.Kind;
                 }
 
                 record.FinishedUtc = DateTime.UtcNow;
