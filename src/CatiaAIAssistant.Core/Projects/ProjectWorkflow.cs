@@ -41,8 +41,7 @@ namespace CatiaAIAssistant.Core.Projects
                 reasons.Add($"پروژه هم‌اکنون در مرحلهٔ {to} است.");
             else if (to > from && to != from + 1)
                 reasons.Add($"پرش از {from} به {to} مجاز نیست؛ مراحل باید به ترتیب طی شوند.");
-            else if (from == WorkflowStage.Completed && to < from)
-                { /* reopening a completed project is rework, allowed */ }
+            // Moving backwards (including reopening a Completed project) is rework and always allowed.
 
             if (reasons.Count == 0 && to > from)
                 foreach (var rule in _rules)
