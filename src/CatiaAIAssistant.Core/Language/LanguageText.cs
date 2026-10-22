@@ -6,12 +6,14 @@ namespace CatiaAIAssistant.Core.Language
     public static class LanguageText
     {
         /// <summary>Digits → ASCII, Arabic ي/ك → Persian ی/ک, ZWNJ/tatweel → space, lower-case Latin, collapsed spaces.</summary>
-        public static string Normalize(string? s)
+        /// <param name="preserveCase">Keep Latin case (needed when unit symbols follow, e.g. MPa ≠ mPa).</param>
+        public static string Normalize(string? s, bool preserveCase = false)
         {
             if (string.IsNullOrWhiteSpace(s)) return string.Empty;
             var t = TextNormalizer.NormalizeDigits(s)
                 .Replace('\u200c', ' ').Replace('\u0640', ' ').Replace('ي', 'ی').Replace('ك', 'ک')
-                .Replace('\u00a0', ' ').ToLowerInvariant();
+                .Replace('\u00a0', ' ');
+            if (!preserveCase) t = t.ToLowerInvariant();
             var sb = new System.Text.StringBuilder(t.Length);
             bool space = false;
             foreach (char c in t)
