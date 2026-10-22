@@ -28,7 +28,11 @@ git tag v0.2.0 && git push origin v0.2.0   # workflow «Release» خودکار �
 
 ## ساختار
 ```
-src/CatiaAIAssistant/    اپلیکیشن (در M2 به چند پروژه تفکیک می‌شود)
+src/CatiaAIAssistant/                       App (WinForms، Composition Root)
+src/CatiaAIAssistant.Core/                  مدل‌های دامنه، لاگ، ابزار متنی (net8.0)
+src/CatiaAIAssistant.Engineering/           تحلیل درخواست و محاسبات (net8.0)
+src/CatiaAIAssistant.Infrastructure.Catia/  اتوماسیون COM کتیا (net8.0-windows)
+tests/CatiaAIAssistant.Tests/               آزمون‌های xUnit + آزمون قرارداد معماری
 installer/               اسکریپت Inno Setup
 docs/MASTER_PROMPT_V3.md مشخصات کامل توسعه
 docs/reports/            گزارش‌های ممیزی و آزمون
@@ -37,4 +41,4 @@ ARCHITECTURE_CONTRACT.md قرارداد الزام‌آور معماری
 ```
 
 ## وضعیت
-نسخهٔ فعلی: **v0.1.0** — پایهٔ مرحلهٔ ۱. جزئیات در [ROADMAP.md](ROADMAP.md) و [گزارش ممیزی](docs/reports/AUDIT_v0.1.0.md).
+نسخهٔ فعلی: **v0.2.0** — معماری ماژولار چندپروژه‌ای + ۴۹ آزمون خودکار. جزئیات در [ROADMAP.md](ROADMAP.md) و [گزارش ممیزی](docs/reports/AUDIT_v0.1.0.md).
