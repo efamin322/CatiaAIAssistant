@@ -90,7 +90,7 @@ namespace CatiaAIAssistant.Core.Errors
         private static Exception Unwrap(Exception ex)
         {
             while (ex is AggregateException { InnerExceptions.Count: 1 } agg) ex = agg.InnerException!;
-            while (ex is System.Reflection.TargetInvocationException { InnerException: not null } tie) ex = tie.InnerException;
+            while (ex is System.Reflection.TargetInvocationException { InnerException: { } inner }) ex = inner;
             return ex;
         }
 
