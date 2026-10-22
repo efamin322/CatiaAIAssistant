@@ -6,6 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using CatiaAIAssistant.Core.Abstractions;
+using CatiaAIAssistant.Core.Errors;
+using CatiaAIAssistant.Threading;
 using CatiaAIAssistant.Core.Logging;
 using CatiaAIAssistant.Core.Text;
 using CatiaAIAssistant.Diagnostics;
@@ -63,6 +65,20 @@ namespace CatiaAIAssistant
             ShowPage("home");
 
             _logger.Info("CATIA AI Assistant آماده است (مجهز به موتور فهم مهندسی، محاسبات، ساخت قطعات مکانیکی و اسمبلی).", "Startup");
+        }
+
+        /// <summary>Spec §05.5: warn before closing while a CAD operation is still running.</summary>
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (_cadOperationRunning && e.CloseReason == CloseReason.UserClosing)
+            {
+                var answer = MessageBox.Show(this,
+                    "یک عملیات CAD هنوز در حال اجراست. بستن برنامه ممکن است سند نیمه‌کاره‌ای در CATIA باقی بگذارد.\r\n\r\nآیا واقعاً می‌خواهید خارج شوید؟",
+                    "عملیات در جریان", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+                if (answer != DialogResult.Yes) { e.Cancel = true; return; }
+                _logger.Log("System", "AppClosing", OperationState.Skipped, "برنامه در حین اجرای عملیات CAD بسته شد؛ ممکن است سند نیمه‌کاره در CATIA باقی مانده باشد.", LogSeverity.Warning);
+            }
+            base.OnFormClosing(e);
         }
 
         private void OnLoggerEntryAdded(OperationLogEntry entry)
@@ -526,8 +542,16 @@ namespace CatiaAIAssistant
             _logger.Info($"تحلیل مهندسی انجام شد: «{_currentSpecification.ProjectTitle}» ({_currentSpecification.ExecutionPlan.Count} گام اجرایی CAD).", "IntentEngine");
         }
 
-        private void ExecuteAnalyzedSpecificationInCatia()
+        private bool _cadOperationRunning;
+
+        private async void ExecuteAnalyzedSpecificationInCatia()
         {
+            if (_cadOperationRunning)
+            {
+                MessageBox.Show(this, "یک عملیات CAD در حال اجراست. تا پایان آن صبر کنید.", "عملیات در جریان", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
             if (_commandBox != null && (_currentSpecification == null || _currentSpecification.RawUserPrompt != _commandBox.Text))
             {
                 AnalyzePromptOnly();
@@ -551,7 +575,29 @@ namespace CatiaAIAssistant
                 if (confirm != DialogResult.Yes) return;
             }
 
-            var result = _mechanicalEngine.ExecuteDesignSpecification(_currentSpecification, _logger.PartsOutputDirectory);
+            var spec = _currentSpecification;
+            string outputDir = _logger.PartsOutputDirectory;
+            CadOperationResult result;
+            _cadOperationRunning = true;
+            UseWaitCursor = true;
+            try
+            {
+                // Spec §05.3: long CAD work runs on an STA worker; the UI stays responsive.
+                result = await StaTaskRunner.Run(() => _mechanicalEngine.ExecuteDesignSpecification(spec, outputDir));
+            }
+            catch (Exception ex)
+            {
+                var err = ErrorTranslator.Translate(ex);
+                _logger.Failed("ExecuteDesignSpecification", err.UserMessage, err.TechnicalDetails);
+                result = CadOperationResult.Failure("ExecuteDesignSpecification", err.UserMessage, err.TechnicalDetails);
+            }
+            finally
+            {
+                _cadOperationRunning = false;
+                UseWaitCursor = false;
+            }
+
+            if (IsDisposed) return;
             if (_analysisReportBox != null && !_analysisReportBox.IsDisposed)
             {
                 _analysisReportBox.Text = EngineeringIntentAndCalculationEngine.FormatSpecificationReport(_currentSpecification);
