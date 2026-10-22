@@ -22,6 +22,7 @@ namespace CatiaAIAssistant.Core.Commands
     public sealed class PlanExecutionReport
     {
         public bool Succeeded { get; set; }
+        public bool Cancelled { get; set; }
         public string Summary { get; set; } = string.Empty;
         public List<CommandRecord> Commands { get; } = new();
         public CadOperationResult? LastResult { get; set; }
@@ -83,7 +84,7 @@ namespace CatiaAIAssistant.Core.Commands
             return string.Empty;
         }
 
-        public PlanExecutionReport Execute(EngineeringDesignSpecification spec, string outputDirectory)
+        public PlanExecutionReport Execute(EngineeringDesignSpecification spec, string outputDirectory, CancellationToken cancellationToken = default)
         {
             var report = new PlanExecutionReport();
             string problem = Validate(spec);
@@ -100,8 +101,20 @@ namespace CatiaAIAssistant.Core.Commands
             string ts = _clock().ToString("yyyyMMdd_HHmmss");
             var executed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+            CadExecutionStep? previous = null;
             foreach (var step in spec.ExecutionPlan)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    // Cancellation is honoured only between steps so no CAD document is left half-built (Spec §05.4/§05.10).
+                    report.Cancelled = true;
+                    MarkRemainingSkipped(spec, previous, report, "به‌دلیل لغو عملیات توسط کاربر اجرا نشد.");
+                    report.Summary = $"اجرا توسط کاربر لغو شد؛ {executed.Count} گام کامل شده و فایل‌های آن حفظ شده‌اند.";
+                    report.OutputFiles = executed;
+                    _logger.Skipped("ExecutePlan", report.Summary, "Command");
+                    return report;
+                }
+
                 _registry.TryGet(step.OperationType, out var handler);
                 string ext = handler.Descriptor.Output == OperationOutputKind.Product ? ".CATProduct" : ".CATPart";
                 string baseName = TextNormalizer.SanitizeIdentifier(Path.GetFileNameWithoutExtension(step.TargetDocumentName), "Part");
@@ -131,7 +144,7 @@ namespace CatiaAIAssistant.Core.Commands
                 if (result.FinalState != OperationState.Succeeded)
                 {
                     _logger.Failed(step.OperationType, $"[{record.CommandId:N}] {result.SummaryMessage}", result.ErrorDetails, "Command");
-                    MarkRemainingSkipped(spec, step, report);
+                    MarkRemainingSkipped(spec, step, report, "به‌دلیل شکست گام قبلی اجرا نشد.");
                     report.Summary = $"اجرا در گام «{step.StepId}» متوقف شد: {result.SummaryMessage}";
                     report.OutputFiles = executed;
                     return report;
@@ -141,6 +154,7 @@ namespace CatiaAIAssistant.Core.Commands
                 record.OutputFilePath = output;
                 step.OutputFilePath = output;
                 executed[step.StepId] = output;
+                previous = step;
             }
 
             report.Succeeded = true;
@@ -149,15 +163,16 @@ namespace CatiaAIAssistant.Core.Commands
             return report;
         }
 
-        private void MarkRemainingSkipped(EngineeringDesignSpecification spec, CadExecutionStep failed, PlanExecutionReport report)
+        /// <summary>Marks every step after <paramref name="failed"/> (or all steps when null) as skipped.</summary>
+        private static void MarkRemainingSkipped(EngineeringDesignSpecification spec, CadExecutionStep? failed, PlanExecutionReport report, string reason)
         {
-            bool after = false;
+            bool after = failed is null;
             foreach (var s in spec.ExecutionPlan)
             {
                 if (after)
                 {
                     s.State = OperationState.Skipped;
-                    report.Commands.Add(new CommandRecord { StepId = s.StepId, OperationType = s.OperationType, State = OperationState.Skipped, FinishedUtc = DateTime.UtcNow, Message = "به‌دلیل شکست گام قبلی اجرا نشد." });
+                    report.Commands.Add(new CommandRecord { StepId = s.StepId, OperationType = s.OperationType, State = OperationState.Skipped, FinishedUtc = DateTime.UtcNow, Message = reason });
                 }
                 if (ReferenceEquals(s, failed)) after = true;
             }
