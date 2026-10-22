@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using CatiaAIAssistant.Core.Logging;
+using CatiaAIAssistant.Core.Text;
 
 namespace CatiaAIAssistant.Infrastructure.Catia
 {
