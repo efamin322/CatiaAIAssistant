@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using CatiaAIAssistant.Core.Language;
 using CatiaAIAssistant.Core.Text;
+using U = CatiaAIAssistant.Core.Units.Units;
 
 namespace CatiaAIAssistant.Engineering
 {
@@ -14,20 +16,24 @@ namespace CatiaAIAssistant.Engineering
         /// <summary>Value proposed (and flagged as an assumption) when the user's L/r is below <see cref="MinRodToCrankRatio"/>.</summary>
         public const double RecommendedRodToCrankRatio = 3.5;
 
+        private static readonly ParameterExtractor Extractor = new();
+
         public EngineeringDesignSpecification AnalyzeUserRequest(string rawPrompt)
         {
             string prompt = TextNormalizer.NormalizeDigits(rawPrompt?.Trim() ?? string.Empty);
             var spec = new EngineeringDesignSpecification { RawUserPrompt = rawPrompt ?? string.Empty };
             var nums = ExtractNumbers(prompt);
+            // M9: named, unit-aware values take precedence over positional numbers.
+            var named = Extractor.Extract(rawPrompt);
 
             if (ContainsAny(prompt, "چرخ دنده", "چرخ‌دنده", "گیربکس", "gear"))
-                BuildGearSpec(prompt, nums, spec);
+                BuildGearSpec(prompt, nums, named, spec);
             else if (ContainsAny(prompt, "شفت", "محور", "shaft"))
                 BuildShaftSpec(nums, spec);
             else if (ContainsAny(prompt, "کوپلینگ", "فلنج", "coupling"))
                 BuildCouplingSpec(nums, spec);
             else if (ContainsAny(prompt, "پیستون", "میل لنگ", "میل‌لنگ", "شاتون", "piston"))
-                BuildPistonSpec(nums, spec);
+                BuildPistonSpec(nums, named, spec);
             else if (ContainsAny(prompt, "کوادکوپتر", "پهپاد", "quadcopter", "drone"))
                 BuildQuadcopterSpec(nums, spec);
             else if (ContainsAny(prompt, "ماشین", "اسباب بازی", "اسباب‌بازی", "toy car"))
@@ -44,32 +50,48 @@ namespace CatiaAIAssistant.Engineering
                 spec.ContradictionsAndWarnings.Add("برای جلوگیری از ساخت قطعه اشتباه، درخواست ناشناخته به‌صورت خودکار به بلوک تبدیل نمی‌شود.");
             }
 
+            foreach (var issue in named.Issues.Where(i => i.Blocking))
+            {
+                spec.CanExecuteNow = false;
+                spec.ContradictionsAndWarnings.Add(issue.Message);
+            }
+
             ValidateSpecification(spec);
             return spec;
         }
 
-        private static void BuildGearSpec(string prompt, List<double> nums, EngineeringDesignSpecification spec)
+        private static void BuildGearSpec(string prompt, List<double> nums, ExtractionResult named, EngineeringDesignSpecification spec)
         {
             spec.Domain = EngineeringDomain.SpurGearTransmission;
             bool isPair = ContainsAny(prompt, "مجموعه", "جفت", "نسبت", "دو");
             spec.ProjectTitle = isPair ? "مجموعه دو چرخ‌دنده ساده درگیر (Spur Gear Pair)" : "چرخ‌دنده ساده پارامتریک (Spur Gear)";
             spec.EngineeringGoal = "انتقال گشتاور و دور بین محورهای موازی همراه با سوراخ شفت و شیار خار";
 
-            double m = nums.Count >= 1 && nums[0] <= 15 ? nums[0] : 3.0;
-            double z1 = nums.Count >= 2 && nums[1] >= 8 ? Math.Round(nums[1]) : 20.0;
-            double ratio = nums.Count >= 3 && nums[2] <= 10 ? nums[2] : 2.0;
-            double width = nums.Count >= 4 ? nums[3] : m * 8.0;
+            double? nm = named.ValueIn("Module", U.Millimeter);
+            double? nz = named.ValueIn("Teeth", U.Unitless);
+            double? ni = named.ValueIn("GearRatio", U.Unitless);
+            double? nb = named.ValueIn("FaceWidth", U.Millimeter) ?? named.ValueIn("Width", U.Millimeter);
+            bool anyNamed = nm.HasValue || nz.HasValue || ni.HasValue || nb.HasValue;
+            bool mUser = nm.HasValue || (!anyNamed && nums.Count >= 1);
+            bool zUser = nz.HasValue || (!anyNamed && nums.Count >= 2);
+            bool iUser = ni.HasValue || (!anyNamed && nums.Count >= 3);
+            bool bUser = nb.HasValue || (!anyNamed && nums.Count >= 4);
+
+            double m = nm ?? (!anyNamed && nums.Count >= 1 && nums[0] <= 15 ? nums[0] : 3.0);
+            double z1 = nz ?? (!anyNamed && nums.Count >= 2 && nums[1] >= 8 ? Math.Round(nums[1]) : 20.0);
+            double ratio = ni ?? (!anyNamed && nums.Count >= 3 && nums[2] <= 10 ? nums[2] : 2.0);
+            double width = nb ?? (!anyNamed && nums.Count >= 4 ? nums[3] : m * 8.0);
             double bore = Math.Max(10.0, Math.Round(m * z1 * 0.28));
 
             double d1 = m * z1;
             double da1 = m * (z1 + 2.0);
             double df1 = m * (z1 - 2.5);
 
-            AddParam(spec, "Module", "ماژول (m)", m, "mm", nums.Count >= 1 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "تعیین‌کننده گام و استحکام دندانه");
-            AddParam(spec, "TeethZ1", "تعداد دندانه (Z1)", z1, "عدد", nums.Count >= 2 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "حداقل ۱۷ دندانه برای جلوگیری از زیربری");
+            AddParam(spec, "Module", "ماژول (m)", m, "mm", mUser ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "تعیین‌کننده گام و استحکام دندانه");
+            AddParam(spec, "TeethZ1", "تعداد دندانه (Z1)", z1, "عدد", zUser ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "حداقل ۱۷ دندانه برای جلوگیری از زیربری");
             AddParam(spec, "PitchDia1", "قطر دایره گام (d1)", d1, "mm", ParameterStatus.Calculated, "d1 = m × Z1");
-            AddParam(spec, "GearRatio", "نسبت انتقال هدف", ratio, "نسبت", nums.Count >= 3 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "برای جفت چرخ‌دنده؛ تعداد دندانه چرخ دوم بر این اساس برآورد می‌شود.");
-            AddParam(spec, "FaceWidth", "عرض دندانه (b)", width, "mm", nums.Count >= 4 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "پهنای درگیری دندانه");
+            AddParam(spec, "GearRatio", "نسبت انتقال هدف", ratio, "نسبت", iUser ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "برای جفت چرخ‌دنده؛ تعداد دندانه چرخ دوم بر این اساس برآورد می‌شود.");
+            AddParam(spec, "FaceWidth", "عرض دندانه (b)", width, "mm", bUser ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "پهنای درگیری دندانه");
             AddParam(spec, "BoreDiameter", "قطر سوراخ مرکزی", bore, "mm", ParameterStatus.AssumedByEngineeringRule, "مقدار اولیهٔ برآوردشده از ماژول و تعداد دندانه؛ باید با قطر شفت واقعی تطبیق داده شود.");
 
             spec.Calculations.Add(new EngineeringCalculationRecord
@@ -210,16 +232,23 @@ namespace CatiaAIAssistant.Engineering
             spec.ExecutionPlan.Add(step);
         }
 
-        private static void BuildPistonSpec(List<double> nums, EngineeringDesignSpecification spec)
+        private static void BuildPistonSpec(List<double> nums, ExtractionResult named, EngineeringDesignSpecification spec)
         {
             spec.Domain = EngineeringDomain.CrankSliderPiston;
             spec.ProjectTitle = "مکانیزم میل‌لنگ، شاتون و پیستون (Slider-Crank)";
             spec.EngineeringGoal = "تبدیل حرکت دورانی میل‌لنگ به حرکت خطی رفت‌وبرگشتی پیستون";
 
-            double r = nums.Count >= 1 ? nums[0] : 30.0;
-            double l = nums.Count >= 2 ? nums[1] : 110.0;
-            double d = nums.Count >= 3 ? nums[2] : 65.0;
-            var rodStatus = nums.Count >= 2 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule;
+            double? nr = named.ValueIn("CrankRadius", U.Millimeter) ?? (named.ValueIn("Stroke", U.Millimeter) / 2.0);
+            double? nl = named.ValueIn("RodLength", U.Millimeter);
+            double? nd = named.ValueIn("PistonDiameter", U.Millimeter);
+            bool anyNamed = nr.HasValue || nl.HasValue || nd.HasValue;
+            bool rUser = nr.HasValue || (!anyNamed && nums.Count >= 1);
+            bool lUser = nl.HasValue || (!anyNamed && nums.Count >= 2);
+            bool dUser = nd.HasValue || (!anyNamed && nums.Count >= 3);
+            double r = nr ?? (!anyNamed && nums.Count >= 1 ? nums[0] : 30.0);
+            double l = nl ?? (!anyNamed && nums.Count >= 2 ? nums[1] : 110.0);
+            double d = nd ?? (!anyNamed && nums.Count >= 3 ? nums[2] : 65.0);
+            var rodStatus = lUser ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule;
             if (l <= r)
             {
                 // Geometrically impossible: keep the user's value so validation blocks execution (no silent correction).
@@ -235,9 +264,9 @@ namespace CatiaAIAssistant.Engineering
                 rodStatus = ParameterStatus.AssumedByEngineeringRule;
             }
 
-            AddParam(spec, "CrankRadius", "شعاع لنگ (r)", r, "mm", nums.Count >= 1 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "نصف کورس پیستون");
+            AddParam(spec, "CrankRadius", "شعاع لنگ (r)", r, "mm", rUser ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "نصف کورس پیستون");
             AddParam(spec, "RodLength", "طول شاتون (L)", l, "mm", rodStatus, "فاصله مرکز دو یاتاقان شاتون");
-            AddParam(spec, "PistonDia", "قطر پیستون (D)", d, "mm", nums.Count >= 3 ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "قطر سیلندر");
+            AddParam(spec, "PistonDia", "قطر پیستون (D)", d, "mm", dUser ? ParameterStatus.SpecifiedByUser : ParameterStatus.AssumedByEngineeringRule, "قطر سیلندر");
             AddParam(spec, "Stroke", "کورس پیستون (S)", 2.0 * r, "mm", ParameterStatus.Calculated, "S = 2r");
 
             spec.Calculations.Add(new EngineeringCalculationRecord
