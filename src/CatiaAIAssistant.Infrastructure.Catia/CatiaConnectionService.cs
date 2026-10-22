@@ -1,28 +1,18 @@
 using System;
 using System.Runtime.InteropServices;
+using CatiaAIAssistant.Core.Abstractions;
 using CatiaAIAssistant.Core.Logging;
 
 namespace CatiaAIAssistant.Infrastructure.Catia
 {
-    public sealed class CatiaConnectionInfo
-    {
-        public bool IsConnected { get; init; }
-        public string ApplicationName { get; init; } = string.Empty;
-        public int OpenDocumentsCount { get; init; }
-        public string ActiveDocumentName { get; init; } = "بدون سند فعال";
-        public bool AttachedToExistingInstance { get; init; }
-        public string StatusMessage { get; init; } = string.Empty;
-        public string? ErrorDetails { get; init; }
-    }
-
-    public sealed class CatiaConnectionService
+    public sealed class CatiaConnectionService : ICadConnectionService
     {
         public const string DefaultProgId = "CATIA.Application";
-        private readonly OperationLogger _logger;
+        private readonly IOperationLogger _logger;
 
         public bool AllowAutoLaunchIfClosed { get; set; } = false;
 
-        public CatiaConnectionService(OperationLogger logger)
+        public CatiaConnectionService(IOperationLogger logger)
         {
             _logger = logger;
         }
@@ -33,7 +23,7 @@ namespace CatiaAIAssistant.Infrastructure.Catia
         [DllImport("oleaut32.dll", PreserveSig = true)]
         private static extern int GetActiveObject(ref Guid rclsid, IntPtr pvReserved, [MarshalAs(UnmanagedType.IUnknown)] out object? ppunk);
 
-        public CatiaConnectionInfo CheckConnection()
+        public CadConnectionInfo CheckConnection()
         {
             _logger.Running("CheckCatiaConnection", "در حال بررسی اتصال COM به CATIA...", "COM");
 
@@ -55,7 +45,7 @@ namespace CatiaAIAssistant.Infrastructure.Catia
                 {
                     string reason = comError ?? "نشست فعالی از CATIA V5 در حال اجرا یافت نشد.";
                     _logger.Failed("CheckCatiaConnection", "اتصال به CATIA برقرار نیست: " + reason, comError, "COM");
-                    return new CatiaConnectionInfo
+                    return new CadConnectionInfo
                     {
                         IsConnected = false,
                         StatusMessage = "CATIA بسته است یا نشست COM فعال نیست.",
@@ -87,7 +77,7 @@ namespace CatiaAIAssistant.Infrastructure.Catia
                 string msg = $"اتصال برقرار است | برنامه: {appName} | اسناد باز: {docCount} | سند فعال: {activeDocName}";
                 _logger.Succeeded("CheckCatiaConnection", msg, null, "COM");
 
-                return new CatiaConnectionInfo
+                return new CadConnectionInfo
                 {
                     IsConnected = true,
                     ApplicationName = appName,
@@ -100,7 +90,7 @@ namespace CatiaAIAssistant.Infrastructure.Catia
             catch (Exception ex)
             {
                 _logger.Failed("CheckCatiaConnection", "خطا در بررسی اتصال به CATIA: " + ex.Message, ex.ToString(), "COM");
-                return new CatiaConnectionInfo
+                return new CadConnectionInfo
                 {
                     IsConnected = false,
                     StatusMessage = "خطا در ارتباط COM با CATIA",
