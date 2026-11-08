@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using CatiaAIAssistant.Core.Cad;
 using CatiaAIAssistant.Core.Logging;
 using CatiaAIAssistant.Diagnostics;
 using CatiaAIAssistant.Engineering;

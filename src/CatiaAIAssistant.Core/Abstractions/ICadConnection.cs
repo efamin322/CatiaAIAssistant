@@ -11,6 +11,6 @@ namespace CatiaAIAssistant.Core.Abstractions
         /// <summary>When false, a closed CAD session is reported as disconnected instead of being launched.</summary>
         bool AllowAutoLaunchIfClosed { get; set; }
 
-        CadConnectionInfo CheckConnection();
+        CatiaConnectionInfo CheckConnection();
     }
 }

@@ -1,28 +1,25 @@
 using System;
 using System.Runtime.InteropServices;
+using CatiaAIAssistant.Core.Abstractions;
+using CatiaAIAssistant.Core.Cad;
 using CatiaAIAssistant.Core.Logging;
 
 namespace CatiaAIAssistant.Infrastructure.Catia
 {
-    public sealed class CatiaConnectionInfo
-    {
-        public bool IsConnected { get; init; }
-        public string ApplicationName { get; init; } = string.Empty;
-        public int OpenDocumentsCount { get; init; }
-        public string ActiveDocumentName { get; init; } = "بدون سند فعال";
-        public bool AttachedToExistingInstance { get; init; }
-        public string StatusMessage { get; init; } = string.Empty;
-        public string? ErrorDetails { get; init; }
-    }
-
-    public sealed class CatiaConnectionService
+    /// <summary>
+    /// CATIA V5 connection via late-bound COM. Implements <see cref="ICadConnection"/> so the UI and
+    /// application layers never touch COM objects (ARCHITECTURE_CONTRACT §3/§5).
+    /// </summary>
+    public sealed class CatiaConnectionService : ICadConnection
     {
         public const string DefaultProgId = "CATIA.Application";
-        private readonly OperationLogger _logger;
+        private readonly IOperationLog _logger;
+
+        public string ProgId => DefaultProgId;
 
         public bool AllowAutoLaunchIfClosed { get; set; } = false;
 
-        public CatiaConnectionService(OperationLogger logger)
+        public CatiaConnectionService(IOperationLog logger)
         {
             _logger = logger;
         }
