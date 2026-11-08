@@ -23,6 +23,53 @@ namespace CatiaAIAssistant.Infrastructure.Catia
         }
 
         /// <summary>Number of documents open in the running CATIA session (0 when CATIA is closed).</summary>
+        public int GetOpenDocumentCount()
+        {
+            try
+            {
+                dynamic catia = _connectionService.AcquireCatiaSession();
+                return Convert.ToInt32(catia.Documents.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.Log("CATIA", "GetOpenDocumentCount", OperationState.Failed,
+                    "شمارش اسناد باز ناموفق بود: " + ex.Message, LogSeverity.Warning);
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Closes documents of the running session. The caller is responsible for user confirmation;
+        /// every failure is reported back (audit A-08: no silent swallowing).
+        /// </summary>
+        public IReadOnlyList<string> CloseAllDocuments(int documentCount)
+        {
+            var failures = new List<string>();
+            if (documentCount <= 0) return failures;
+
+            dynamic catia;
+            try { catia = _connectionService.AcquireCatiaSession(); }
+            catch (Exception ex)
+            {
+                failures.Add("اتصال به CATIA برقرار نشد: " + ex.Message);
+                return failures;
+            }
+
+            for (int i = documentCount; i >= 1; i--)
+            {
+                try { catia.Documents.Item(i).Close(); }
+                catch (Exception closeEx) { failures.Add($"سند شماره {i}: {closeEx.Message}"); }
+            }
+
+            if (failures.Count == 0)
+                _logger.Succeeded("CloseAllDocuments", $"درخواست بستن {documentCount} سند اجرا شد.");
+            else
+                _logger.Log("CATIA", "CloseAllDocuments", OperationState.Failed,
+                    $"بعضی اسناد بسته نشدند: {string.Join(" | ", failures)}", LogSeverity.Warning);
+
+            return failures;
+        }
+
         public bool HasOpenDocuments()
         {
             try
