@@ -10,7 +10,7 @@
 | M0 | ریپو، قرارداد معماری، CI، Release pipeline | 40 | v0.1.0 | ✅ |
 | M1 | ممیزی پروژهٔ فعلی + گزارش | 01 | v0.1.0 | 🟢 |
 | M2 | تفکیک ماژولار به پروژه‌های جدا (Core / Engineering / Infrastructure.Catia / App / Tests) | 02, 51 | v0.2.0 | ✅ |
-| M3 | Interfaceهای هسته + تزریق وابستگی (Composition Root) — **مرحلهٔ بعدی** | 02, 04 | v0.3.0 | ⬜ |
+| M3 | Interface‌های هسته + تزریق وابستگی (Composition Root) — ۵ قرارداد در `Core.Abstractions`، پیاده‌سازی‌ها در Infrastructure، UI فقط از طریق قرارداد | 02, 04 | v0.3.0 | ✅ |
 | M4 | آزمون واحد واقعی (xUnit) برای منطق موجود؛ اجرای خودکار در CI (49 آزمون + آزمون قرارداد معماری) | 40, 53 | v0.2.0 | ✅ |
 | M5 | مدل دادهٔ پروژه + ماشین حالت گردش کار `Draft→…→Completed` | 03 | v0.3.0 | ⬜ |
 | M6 | فرمان‌ها (Command) + فهرست مجاز عملیات CAD + Handler Registry | 04, 42 | v0.3.0 | ⬜ |
