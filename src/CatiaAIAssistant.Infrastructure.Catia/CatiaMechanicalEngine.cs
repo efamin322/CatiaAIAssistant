@@ -3,23 +3,28 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using CatiaAIAssistant.Core.Abstractions;
 using CatiaAIAssistant.Core.Logging;
 using CatiaAIAssistant.Engineering;
 
 namespace CatiaAIAssistant.Infrastructure.Catia
 {
-    public sealed class CatiaMechanicalEngine
+    /// <summary>
+    /// Executes an approved design plan as a catalogue of whitelisted CAD operations and can inspect
+    /// existing documents. Implements <see cref="ICadExecutionEngine"/>.
+    /// </summary>
+    public sealed class CatiaMechanicalEngine : ICadExecutionEngine
     {
         private readonly CatiaConnectionService _connectionService;
         private readonly CatiaDocumentManager _documentManager;
         private readonly CatiaBasicPartService _basicPartService;
-        private readonly OperationLogger _logger;
+        private readonly IOperationLog _logger;
 
         public CatiaMechanicalEngine(
             CatiaConnectionService connectionService,
             CatiaDocumentManager documentManager,
             CatiaBasicPartService basicPartService,
-            OperationLogger logger)
+            IOperationLog logger)
         {
             _connectionService = connectionService;
             _documentManager = documentManager;
