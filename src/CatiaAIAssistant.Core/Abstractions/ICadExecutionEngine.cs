@@ -1,4 +1,4 @@
-using CatiaAIAssistant.Core.Domain;
+using CatiaAIAssistant.Engineering;
 using CatiaAIAssistant.Core.Logging;
 
 namespace CatiaAIAssistant.Core.Abstractions
