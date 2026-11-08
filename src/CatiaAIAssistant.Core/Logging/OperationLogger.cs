@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using CatiaAIAssistant.Core.Abstractions;
 
 namespace CatiaAIAssistant.Core.Logging
 {
-    public sealed class OperationLogger
+    /// <summary>Default file/UI logger. Implements <see cref="IOperationLog"/> so callers can depend on the contract.</summary>
+    public sealed class OperationLogger : IOperationLog
     {
         private readonly List<OperationLogEntry> _entries = new();
         private readonly object _syncLock = new();
