@@ -3,6 +3,19 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-08
+### Added
+- **Core contracts (M3):** `IOperationLog`, `ICadConnection`, `ICadDocumentService`, `ICadPartService`, `ICadExecutionEngine` in `CatiaAIAssistant.Core.Abstractions`.
+- **Composition Root:** `App/Services/AppServices.cs` (`CreateDefault()`) — the only place where concrete types are constructed and wired; `Form1` takes `AppServices` via constructor injection and falls back to the default root for the designer entry point.
+- `ICadDocumentService.GetOpenDocumentCount()` / `CloseAllDocuments(int)` so closing documents no longer requires COM in the UI layer.
+- Executable architecture tests fail the build if a portable layer references a `*-windows` project, WinForms, `Marshal`, `dynamic`, or the CATIA infrastructure.
+### Changed
+- `Form1` and `Phase1SelfTestRunner` depend only on Core abstractions (`IOperationLog`/`ICad*`); zero direct COM/`dynamic` usage in the UI project (audit A-04 closed).
+- `CatiaConnectionInfo` moved to `Core.Cad` as a plain DTO; `CatiaConnectionService` exposes `ProgId` instead of leaking its constant.
+- `SanitizeIdentifier` call sites now use `Core.Text.TextNormalizer` directly.
+### Fixed
+- Nullable/using fallout from the DI rewiring; solution still builds with 0 warnings.
+
 ## [0.2.0] - 2026-10-22
 ### Changed
 - **Modular split (M2):** solution now has `CatiaAIAssistant.Core` (net8.0), `CatiaAIAssistant.Engineering` (net8.0), `CatiaAIAssistant.Infrastructure.Catia` (net8.0-windows) and the WinForms App.
