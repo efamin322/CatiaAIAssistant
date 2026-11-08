@@ -13,5 +13,14 @@ namespace CatiaAIAssistant.Core.Abstractions
 
         /// <summary>True when at least one document is open in the CAD session.</summary>
         bool HasOpenDocuments();
+
+        /// <summary>Number of documents currently open in the CAD session (0 when the CAD host is not running).</summary>
+        int GetOpenDocumentCount();
+
+        /// <summary>
+        /// Attempts to close <paramref name="documentCount"/> documents of the running session.
+        /// Returns one message per document that could not be closed (empty list = all closed).
+        /// </summary>
+        IReadOnlyList<string> CloseAllDocuments(int documentCount);
     }
 }
