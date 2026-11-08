@@ -1,20 +1,41 @@
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
+using CatiaAIAssistant.Core.Abstractions;
 using CatiaAIAssistant.Core.Logging;
 using CatiaAIAssistant.Core.Text;
 
 namespace CatiaAIAssistant.Infrastructure.Catia
 {
-    public sealed class CatiaDocumentManager
+    /// <summary>
+    /// Document lifecycle for CATIA (open / activate / backup / rollback). Implements
+    /// <see cref="ICadDocumentService"/>; COM handles stay private to this class.
+    /// </summary>
+    public sealed class CatiaDocumentManager : ICadDocumentService
     {
         private readonly CatiaConnectionService _connectionService;
-        private readonly OperationLogger _logger;
+        private readonly IOperationLog _logger;
 
-        public CatiaDocumentManager(CatiaConnectionService connectionService, OperationLogger logger)
+        public CatiaDocumentManager(CatiaConnectionService connectionService, IOperationLog logger)
         {
             _connectionService = connectionService;
             _logger = logger;
+        }
+
+        /// <summary>Number of documents open in the running CATIA session (0 when CATIA is closed).</summary>
+        public bool HasOpenDocuments()
+        {
+            try
+            {
+                dynamic catia = _connectionService.AcquireCatiaSession();
+                return Convert.ToInt32(catia.Documents.Count) > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.Log("CATIA", "HasOpenDocuments", OperationState.Failed,
+                    "بررسی اسناد باز ناموفق بود: " + ex.Message, LogSeverity.Warning);
+                return false;
+            }
         }
 
         /// <summary>Kept for backward compatibility; delegates to <see cref="TextNormalizer.SanitizeIdentifier"/>.</summary>
