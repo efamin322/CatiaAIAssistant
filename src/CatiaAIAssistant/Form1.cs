@@ -5,11 +5,13 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using CatiaAIAssistant.Composition;
+using CatiaAIAssistant.Core.Abstractions;
 using CatiaAIAssistant.Core.Cad;
 using CatiaAIAssistant.Core.Logging;
+using CatiaAIAssistant.Core.Text;
 using CatiaAIAssistant.Diagnostics;
 using CatiaAIAssistant.Engineering;
-using CatiaAIAssistant.Infrastructure.Catia;
 using CatiaAIAssistant.UI.Dialogs;
 
 namespace CatiaAIAssistant
@@ -22,12 +24,14 @@ namespace CatiaAIAssistant
         private readonly Color _backgroundColor = Color.FromArgb(242, 245, 249);
         private readonly Color _textColor = Color.FromArgb(35, 48, 66);
 
-        private readonly OperationLogger _logger;
-        private readonly CatiaConnectionService _connectionService;
-        private readonly CatiaDocumentManager _documentManager;
-        private readonly CatiaBasicPartService _partService;
+        // Only contracts are used here; concrete CATIA/COM types never reach the UI layer
+        // (ARCHITECTURE_CONTRACT §3/§5). Wiring happens once in Composition.AppServices.
+        private readonly IOperationLog _logger;
+        private readonly ICadConnection _connection;
+        private readonly ICadDocumentService _documents;
+        private readonly ICadPartService _parts;
+        private readonly ICadExecutionEngine _execution;
         private readonly EngineeringIntentAndCalculationEngine _intentEngine;
-        private readonly CatiaMechanicalEngine _mechanicalEngine;
         private readonly Phase1SelfTestRunner _selfTestRunner;
 
         private FlowLayoutPanel _workspace = null!;
@@ -44,15 +48,22 @@ namespace CatiaAIAssistant
         private readonly List<Panel> _pageCards = new();
         private string _currentPage = "home";
 
-        public Form1()
+        public Form1() : this(AppServices.CreateDefault())
         {
-            _logger = new OperationLogger();
-            _connectionService = new CatiaConnectionService(_logger);
-            _documentManager = new CatiaDocumentManager(_connectionService, _logger);
-            _partService = new CatiaBasicPartService(_connectionService, _documentManager, _logger);
-            _intentEngine = new EngineeringIntentAndCalculationEngine();
-            _mechanicalEngine = new CatiaMechanicalEngine(_connectionService, _documentManager, _partService, _logger);
-            _selfTestRunner = new Phase1SelfTestRunner(_logger, _connectionService, _documentManager, _partService);
+        }
+
+        /// <summary>Test/DI-friendly constructor: the form receives a fully wired service set.</summary>
+        public Form1(AppServices services)
+        {
+            ArgumentNullException.ThrowIfNull(services);
+
+            _logger = services.Logger;
+            _connection = services.Connection;
+            _documents = services.Documents;
+            _parts = services.Parts;
+            _execution = services.Execution;
+            _intentEngine = services.Intent;
+            _selfTestRunner = services.SelfTests;
 
             _lastSaveDirectory = _logger.PartsOutputDirectory;
             _logger.EntryAdded += OnLoggerEntryAdded;
@@ -549,7 +560,7 @@ namespace CatiaAIAssistant
                 if (confirm != DialogResult.Yes) return;
             }
 
-            var result = _mechanicalEngine.ExecuteDesignSpecification(_currentSpecification, _logger.PartsOutputDirectory);
+            var result = _execution.ExecuteDesignSpecification(_currentSpecification, _logger.PartsOutputDirectory);
             if (_analysisReportBox != null && !_analysisReportBox.IsDisposed)
             {
                 _analysisReportBox.Text = EngineeringIntentAndCalculationEngine.FormatSpecificationReport(_currentSpecification);
@@ -626,7 +637,7 @@ namespace CatiaAIAssistant
             inspectCard.Height = 155;
             AddCardButton(inspectCard, "بازرسی سند فعال در CATIA", () =>
             {
-                string rep = _mechanicalEngine.InspectActiveOrSelectedDocument();
+                string rep = _execution.InspectActiveOrSelectedDocument();
                 MessageBox.Show(this, rep, "گزارش بازرسی سند فعال", MessageBoxButtons.OK, MessageBoxIcon.Information);
             });
             AddCardButton(inspectCard, "انتخاب فایل و بازرسی...", () =>
@@ -639,7 +650,7 @@ namespace CatiaAIAssistant
                 };
                 if (dlg.ShowDialog(this) == DialogResult.OK)
                 {
-                    string rep = _mechanicalEngine.InspectActiveOrSelectedDocument(dlg.FileName);
+                    string rep = _execution.InspectActiveOrSelectedDocument(dlg.FileName);
                     MessageBox.Show(this, rep, "گزارش بازرسی فایل", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             });
@@ -666,7 +677,7 @@ namespace CatiaAIAssistant
         private void BuildSettingsPage()
         {
             var card = CreateCard("تنظیمات ارتباط COM و پوشه کاری",
-                $"ProgID: {CatiaConnectionService.DefaultProgId}\r\nپوشه ذخیره قطعات: {_logger.PartsOutputDirectory}");
+                $"ProgID: {_connection.ProgId}\r\nپوشه ذخیره قطعات: {_logger.PartsOutputDirectory}");
             card.Height = 160;
             AddCardButton(card, "بررسی اتصال CATIA", () => CheckCatiaConnection(this, EventArgs.Empty));
             AddCardButton(card, "بازکردن پوشه قطعات", OpenWorkspaceFolder);
@@ -684,8 +695,7 @@ namespace CatiaAIAssistant
         {
             try
             {
-                dynamic catia = _connectionService.AcquireCatiaSession();
-                int count = Convert.ToInt32(catia.Documents.Count);
+                int count = _documents.GetOpenDocumentCount();
                 if (count == 0)
                 {
                     MessageBox.Show(this, "هیچ سندی در CATIA باز نیست.", "مدیریت اسناد", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -697,17 +707,8 @@ namespace CatiaAIAssistant
                     "تأیید بستن همهٔ اسناد", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
                 if (answer != DialogResult.Yes) return;
 
-                var failures = new List<string>();
-                for (int i = count; i >= 1; i--)
-                {
-                    try { catia.Documents.Item(i).Close(); }
-                    catch (Exception closeEx) { failures.Add($"سند شماره {i}: {closeEx.Message}"); }
-                }
-
-                if (failures.Count == 0)
-                    _logger.Succeeded("CloseAllDocuments", $"درخواست بستن {count} سند اجرا شد.");
-                else
-                    _logger.Log("CATIA", "CloseAllDocuments", OperationState.Failed, $"بعضی اسناد بسته نشدند: {string.Join(" | ", failures)}", LogSeverity.Warning);
+                // The CAD layer owns the COM handles; the UI only asks and reports (ARCHITECTURE_CONTRACT §5).
+                IReadOnlyList<string> failures = _documents.CloseAllDocuments(count);
 
                 if (failures.Count > 0)
                     MessageBox.Show(this, string.Join(Environment.NewLine, failures), "اسناد بسته‌نشده", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -788,7 +789,7 @@ namespace CatiaAIAssistant
 
         private void CheckCatiaConnection(object? sender, EventArgs e)
         {
-            CatiaConnectionInfo info = _connectionService.CheckConnection();
+            CatiaConnectionInfo info = _connection.CheckConnection();
             if (info.IsConnected)
             {
                 _connectionStatus.Text = $"● متصل ({info.OpenDocumentsCount} سند باز)";
@@ -808,7 +809,7 @@ namespace CatiaAIAssistant
             using var dialog = new OpenFileDialog { Title = "انتخاب فایل برای بازکردن در CATIA", InitialDirectory = Directory.Exists(_lastSaveDirectory) ? _lastSaveDirectory : _logger.PartsOutputDirectory, Filter = "فایل‌های CAD|*.CATPart;*.CATProduct;*.CATDrawing;*.stp;*.step;*.igs|همه فایل‌ها|*.*" };
             if (dialog.ShowDialog(this) != DialogResult.OK) return;
             _lastSaveDirectory = Path.GetDirectoryName(dialog.FileName) ?? _lastSaveDirectory;
-            var res = _documentManager.OpenOrActivateDocument(dialog.FileName);
+            var res = _documents.OpenOrActivateDocument(dialog.FileName);
             if (res.FinalState != OperationState.Succeeded) MessageBox.Show(this, res.SummaryMessage, "خطا", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
@@ -818,17 +819,17 @@ namespace CatiaAIAssistant
             if (parameters.ShowDialog(this) != DialogResult.OK) return;
 
             _logger.EnsureWorkspaceDirectories();
-            string cleanType = CatiaDocumentManager.SanitizeIdentifier(shapeType, "Shape");
+            string cleanType = TextNormalizer.SanitizeIdentifier(shapeType, "Shape");
 
             using var saveDialog = new SaveFileDialog { Title = "انتخاب نام و محل ذخیره CATPart", InitialDirectory = Directory.Exists(_lastSaveDirectory) ? _lastSaveDirectory : _logger.PartsOutputDirectory, FileName = $"CATIA_{cleanType}_{DateTime.Now:yyyyMMdd_HHmmss}.CATPart", Filter = "CATIA Part (*.CATPart)|*.CATPart", DefaultExt = "CATPart" };
             if (saveDialog.ShowDialog(this) != DialogResult.OK) return;
 
             string dir = Path.GetDirectoryName(saveDialog.FileName) ?? _logger.PartsOutputDirectory;
-            string safeFile = CatiaDocumentManager.SanitizeIdentifier(Path.GetFileNameWithoutExtension(saveDialog.FileName), cleanType) + ".CATPart";
+            string safeFile = TextNormalizer.SanitizeIdentifier(Path.GetFileNameWithoutExtension(saveDialog.FileName), cleanType) + ".CATPart";
             string finalPath = Path.Combine(dir, safeFile);
             _lastSaveDirectory = dir;
 
-            var result = _partService.CreateShapePart(shapeType, parameters.FirstDimension, parameters.SecondDimension, parameters.PolygonSides, parameters.PadHeight, finalPath);
+            var result = _parts.CreateShapePart(shapeType, parameters.FirstDimension, parameters.SecondDimension, parameters.PolygonSides, parameters.PadHeight, finalPath);
             if (result.FinalState != OperationState.Succeeded) MessageBox.Show(this, result.SummaryMessage, "خطای مدل‌سازی", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }

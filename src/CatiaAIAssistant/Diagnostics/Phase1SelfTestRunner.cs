@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using CatiaAIAssistant.Core.Abstractions;
 using CatiaAIAssistant.Core.Logging;
-using CatiaAIAssistant.Infrastructure.Catia;
+using CatiaAIAssistant.Core.Text;
 using CatiaAIAssistant.Engineering;
 
 namespace CatiaAIAssistant.Diagnostics
@@ -21,14 +22,14 @@ namespace CatiaAIAssistant.Diagnostics
 
     public sealed class Phase1SelfTestRunner
     {
-        private readonly OperationLogger _logger;
-        private readonly CatiaConnectionService _connectionService;
-        private readonly CatiaDocumentManager _documentManager;
-        private readonly CatiaBasicPartService _partService;
+        private readonly IOperationLog _logger;
+        private readonly ICadConnection _connection;
+        private readonly ICadDocumentService _documents;
+        private readonly ICadPartService _parts;
 
-        public Phase1SelfTestRunner(OperationLogger logger, CatiaConnectionService connectionService, CatiaDocumentManager documentManager, CatiaBasicPartService partService)
+        public Phase1SelfTestRunner(IOperationLog logger, ICadConnection connection, ICadDocumentService documents, ICadPartService parts)
         {
-            _logger = logger; _connectionService = connectionService; _documentManager = documentManager; _partService = partService;
+            _logger = logger; _connection = connection; _documents = documents; _parts = parts;
         }
 
         public IReadOnlyList<SelfTestCaseResult> RunPhase1Suite(bool includeCatiaLiveTests)
@@ -58,7 +59,7 @@ namespace CatiaAIAssistant.Diagnostics
         {
             try
             {
-                bool okValid = CatiaBasicPartService.TryParseBlockDimensionsFromText("یک مکعب با ابعاد ۴۰ در ۲۵.۵ در ۱۲ میلی‌متر بساز", out double x, out double y, out double z, out string err);
+                bool okValid = TextNormalizer.TryParseBlockDimensions("یک مکعب با ابعاد ۴۰ در ۲۵.۵ در ۱۲ میلی‌متر بساز", out double x, out double y, out double z, out string err);
                 if (okValid && Math.Abs(x - 40.0) < 1e-6 && Math.Abs(z - 12.0) < 1e-6)
                     return new SelfTestCaseResult { TestId = "T1.1", Title = "تبدیل ارقام", Category = TestCategory.AutomatedUnit, State = OperationState.Succeeded, Details = "استخراج ابعاد تأیید شد." };
                 return new SelfTestCaseResult { TestId = "T1.1", Title = "تبدیل ارقام", Category = TestCategory.AutomatedUnit, State = OperationState.Failed, Details = err };
@@ -112,7 +113,7 @@ namespace CatiaAIAssistant.Diagnostics
 
         private SelfTestCaseResult TestIdentifierSanitization()
         {
-            string sanitized = CatiaDocumentManager.SanitizeIdentifier("مستطیل ۱*۲", "PART");
+            string sanitized = TextNormalizer.SanitizeIdentifier("مستطیل ۱*۲", "PART");
             if (sanitized.StartsWith("Rect"))
                 return new SelfTestCaseResult { TestId = "T1.2", Title = "نام‌گذاری استاندارد", Category = TestCategory.AutomatedUnit, State = OperationState.Succeeded, Details = "تأیید شد." };
             return new SelfTestCaseResult { TestId = "T1.2", Title = "نام‌گذاری", Category = TestCategory.AutomatedUnit, State = OperationState.Failed, Details = "خطا" };
@@ -125,7 +126,7 @@ namespace CatiaAIAssistant.Diagnostics
                 _logger.EnsureWorkspaceDirectories();
                 string dummyFile = Path.Combine(_logger.PartsOutputDirectory, "SelfTest_Dummy.txt");
                 File.WriteAllText(dummyFile, "Initial", Encoding.UTF8);
-                string? backup = _documentManager.CreateBackupIfFileExists(dummyFile);
+                string? backup = _documents.CreateBackupIfFileExists(dummyFile);
                 bool ok = backup != null && File.Exists(backup);
                 if (File.Exists(dummyFile)) File.Delete(dummyFile);
                 if (ok) File.Delete(backup!);
@@ -136,11 +137,11 @@ namespace CatiaAIAssistant.Diagnostics
 
         private SelfTestCaseResult TestCatiaIntegrationAndLifecycle()
         {
-            if (!_connectionService.CheckConnection().IsConnected)
+            if (!_connection.CheckConnection().IsConnected)
                 return new SelfTestCaseResult { TestId = "T1.4", Title = "ارتباط با CATIA", Category = TestCategory.CatiaIntegration, State = OperationState.Skipped, Details = "CATIA بسته است." };
 
             string path = Path.Combine(_logger.PartsOutputDirectory, $"TestBlock_{DateTime.Now:yyyyMMdd_HHmmss}.CATPart");
-            var res = _partService.CreateBlockPart(35.0, 25.0, 15.0, path, true);
+            var res = _parts.CreateBlockPart(35.0, 25.0, 15.0, path, true);
             if (res.FinalState == OperationState.Succeeded)
                 return new SelfTestCaseResult { TestId = "T1.4", Title = "تست CATIA", Category = TestCategory.CatiaIntegration, State = OperationState.Succeeded, Details = "تأیید شد." };
             return new SelfTestCaseResult { TestId = "T1.4", Title = "تست CATIA", Category = TestCategory.CatiaIntegration, State = OperationState.Failed, Details = res.SummaryMessage };
