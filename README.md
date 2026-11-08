@@ -23,7 +23,7 @@ dotnet test  CatiaAIAssistant.sln --filter "Category!=CatiaIntegration"
 
 ## انتشار نسخهٔ جدید
 ```bash
-git tag v0.2.0 && git push origin v0.2.0   # workflow «Release» خودکار نصب‌کننده و ZIP می‌سازد
+git tag v0.3.0 && git push origin v0.3.0   # workflow «Release» خودکار نصب‌کننده و ZIP می‌سازد
 ```
 
 ## ساختار
@@ -41,4 +41,4 @@ ARCHITECTURE_CONTRACT.md قرارداد الزام‌آور معماری
 ```
 
 ## وضعیت
-نسخهٔ فعلی: **v0.2.0** — معماری ماژولار چندپروژه‌ای + ۴۹ آزمون خودکار. جزئیات در [ROADMAP.md](ROADMAP.md) و [گزارش ممیزی](docs/reports/AUDIT_v0.1.0.md).
+نسخهٔ فعلی: **v0.3.0** — معماری ماژولار + قراردادهای هسته (`Core.Abstractions`) + Composition Root + ۴۹ آزمون خودکار. لایهٔ UI دیگر هیچ ارجاع مستقیمی به COM/CATIA ندارد. جزئیات در [ROADMAP.md](ROADMAP.md) و [گزارش ممیزی](docs/reports/AUDIT_v0.1.0.md).
